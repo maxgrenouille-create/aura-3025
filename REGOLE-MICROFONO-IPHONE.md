@@ -11,3 +11,5 @@ Verificate sul telefono di Massimo il 21/11/2026. Ogni violazione ha già rotto 
 7. Dopo la risposta: il pulsante pulsa e invita a toccare ("Tocca il microfono per la prossima domanda").
 
 Prima di pubblicare qualsiasi modifica al microfono: test con microfono simulato lento (avvio 2,2 s) e tre domande di fila.
+
+8. Se si tocca il microfono mentre AURA parla: prima zittirla, poi accendere il microfono dopo ~700 ms. Se parte mentre la voce occupa l'audio, su iPhone non sente nulla (scoperto con il registro #debug, 21/11 ore 11:43).
