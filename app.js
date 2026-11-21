@@ -129,9 +129,15 @@ function fillVoiceSelect(){
 }
 if(synth){fillVoiceSelect();synth.addEventListener?.('voiceschanged',fillVoiceSelect);}
 
+let voiceUnlocked=false;
+function unlockVoice(after){
+  // Al prossimo tocco sullo schermo la voce si sblocca e (se serve) riparte.
+  const go=()=>{document.removeEventListener('pointerup',go,true);voiceUnlocked=true;after&&after();};
+  document.addEventListener('pointerup',go,true);
+}
 function clean(text){return text.replace(/…/g,', ').replace(/’/g,"'").replace(/\s+/g,' ').trim();}
 
-function speak(_voice,text){
+function speak(_voice,text,retry=false){
   stopSpeaking();
   if(!$('voiceToggle').checked||!text)return;
   if(!synth){setHint('Questo browser non ha una voce di sintesi: leggi la risposta qui sopra.');return;}
@@ -154,13 +160,16 @@ function speak(_voice,text){
   // Alcuni telefoni bloccano la voce se non parte da un tocco: offro il pulsante.
   setTimeout(()=>{
     if(activeUtterance!==u||started)return;
-    synth.cancel();activeUtterance=null;setStatus('IN ATTESA DI UNA DOMANDA');
-    $('playVoice').hidden=false;$('playVoice').onclick=()=>{$('playVoice').hidden=true;speak(_voice,text);};
+    synth.cancel();activeUtterance=null;
+    if(!retry){speak(_voice,text,true);return;}
+    setStatus('IN ATTESA DI UNA DOMANDA');
+    unlockVoice(()=>speak(_voice,text,true));
   },2500);
 }
 
 function ask(question){
   const text=question.trim();if(!text)return;
+  const asked=$('youAsked');if(asked){asked.textContent='Hai chiesto: «'+text+'»';asked.hidden=false;}
   const result=demoAnswer(text);
   render(result.text,result.actions,result.follow);
   setHint('Domanda ricevuta · puoi parlare ancora oppure scrivere');
@@ -176,11 +185,11 @@ $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: tocca il campo di testo e usa il microfono della tastiera per dettare.');$('question').focus();return;}
   stopSpeaking();   // AURA tace mentre ascolta: su iPhone voce e microfono non convivono
   try{
-    recognition=new SpeechRecognition();recognition.lang='it-IT';recognition.interimResults=false;recognition.continuous=false;
+    recognition=new SpeechRecognition();recognition.lang='it-IT';recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;let heard='';
     recognition.onstart=()=>{listening=true;$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');};
-    recognition.onresult=event=>{const words=event.results?.[0]?.[0]?.transcript;if(words)ask(words);};
+    recognition.onresult=event=>{let txt='';for(let i=0;i<event.results.length;i++)txt+=event.results[i][0].transcript;heard=txt.trim();$('question').value=heard;if(event.results[event.results.length-1].isFinal&&heard){const h=heard;heard='';try{recognition.stop();}catch{}setTimeout(()=>ask(h),350);}};
     recognition.onerror=event=>{const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':event.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura. Oppure detta con il microfono della tastiera.':event.error==='no-speech'?'Non ho sentito nulla. Riprova o scrivi.':'Microfono non disponibile ('+event.error+'). Tocca il campo di testo e usa il microfono della tastiera.';setHint(reason);};
-    recognition.onend=()=>{listening=false;$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');};
+    recognition.onend=()=>{if(heard){const h=heard;heard='';setTimeout(()=>ask(h),350);}listening=false;$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');};
     recognition.start();
   }catch{setHint('Non riesco ad avviare il microfono. Prova a scrivere la domanda.');$('question').focus();}
 });
@@ -199,3 +208,16 @@ $('muteButton')&&($('muteButton').onclick=()=>{$('voiceToggle').checked=!$('voic
 try{if(localStorage.getItem('aura_muted')==='1')$('voiceToggle').checked=false;}catch{}
 syncMute();
 try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previous?.text)render(previous.text,previous.actions||[],previous.follow||[]);}catch{}
+
+// ---------- Ingresso: il primo tocco sblocca la voce per tutta la visita ----------
+(()=>{
+  const btn=$('startAura');if(!btn)return;
+  btn.onclick=()=>{
+    btn.classList.add('gone');setTimeout(()=>btn.remove(),600);
+    voiceUnlocked=true;
+    const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Salve, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
+    render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);
+    if($('voiceToggle').checked)speak('saluto',hello);
+    else{try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
+  };
+})();
