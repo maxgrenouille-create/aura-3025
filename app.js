@@ -310,7 +310,8 @@ window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // SCOPERTA DI MASSIMO (21/11): dopo la prima risposta il primo avvio è sordo, il secondo (fatto da un tocco) funziona.
 // Quindi in un solo tocco faccio due avvii, entrambi dentro il gesto: appoggio del dito = risveglio, stacco del dito = ascolto vero.
 $('mic').addEventListener('touchstart',()=>{
-  if(!IS_IOS||!askedOnce||armed||!SpeechRecognition)return;
+  window.__touch=(window.__touch||0)+1;
+  if(!askedOnce||armed||!SpeechRecognition){dbg('dito appoggiato: niente risveglio (prima='+!askedOnce+' armato='+armed+')');return;}
   try{if(window.speechSynthesis&&speechSynthesis.speaking){stopSpeaking();speechSynthesis.cancel();}}catch{}
   ensureRec();try{rec.start();dbg('mic: risveglio (dito appoggiato)');}catch(e){dbg('mic: risveglio non riuscito '+e.message);}
 },{passive:true});
@@ -319,7 +320,7 @@ $('mic').addEventListener('click',()=>{
   if(armed&&recRunning&&heardText){sendHeard();return;}
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
   const speakingNow=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
-  dbg('tocco microfono · AURA parlava='+speakingNow);
+  dbg('tocco microfono · AURA parlava='+speakingNow+' · dito='+(window.__touch||0)+' · iOS='+IS_IOS);
   if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}}
   armed=false;dialog=true;listenNow();
 });
