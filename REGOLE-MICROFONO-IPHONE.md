@@ -19,3 +19,4 @@ Prima di pubblicare qualsiasi modifica al microfono: test con microfono simulato
 11. ERRORE MIO (21/11 11:56-12:15): il riavvio automatico fatto DA CODICE (senza tocco) resta sordo e ha rotto anche la PRIMA domanda. Un riavvio funziona solo se nasce da un tocco. Ripristinata la versione delle 11:43; il secondo avvio ora nasce dallo stesso tocco (touchstart = risveglio, click = ascolto), solo dalla seconda domanda in poi.
 
 12. VERSIONE A DUE TOCCHI (21/11 12:50): dalla seconda domanda, tocco 1 = sveglia (scritta TOCCA ANCORA E PARLA), tocco 2 = ascolto. Il risveglio a un tocco (touchstart+click) NON ha funzionato su iPhone.
+13. (21/11 12:55) Il secondo tocco vale solo quando compare TOCCA ANCORA E PARLA (1,8 s dopo il primo): i tocchi troppo rapidi (0,4 s) fallivano. Mentre AURA parla il microfono è grigio e i tocchi sono ignorati (idea di Massimo).

@@ -242,14 +242,15 @@ function dbg(msg){
 window.dbg=dbg;
 function micUI(on){
   $('mic').classList.toggle('listening',on);
-  if(on&&wakeTap){setStatus('TOCCA ANCORA E PARLA');setHint('Microfono sveglio: tocca di nuovo e fai la domanda');$('mic').classList.add('nudge');}
+  if(on&&wakeTap){setStatus('UN ISTANTE…');setHint('Sto svegliando il microfono…');$('mic').classList.remove('nudge');
+    clearTimeout(wakeTimer);wakeTimer=setTimeout(()=>{if(!wakeTap)return;wakeReady=true;dbg('microfono sveglio: pronto per il tocco 2');setStatus('TOCCA ANCORA E PARLA');setHint('Pronto: tocca di nuovo e fai la domanda');$('mic').classList.add('nudge');},1800);}
   else if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Parla ora · tocca il microfono per fermare':'Parla ora…');}
-  else if(['TI STO ASCOLTANDO','UN ISTANTE…','TOCCA ANCORA E PARLA'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
+  else if(!wakeTap&&['TI STO ASCOLTANDO','UN ISTANTE…','TOCCA ANCORA E PARLA'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
 }
 function hardStop(){if(rec){try{rec.abort();}catch{}}}           // spegne davvero il microfono
-let askedOnce=false,wakeTap=false;
+let askedOnce=false,wakeTap=false,wakeReady=false,wakeTimer=null;
 function sendHeard(){
-  askedOnce=true;wakeTap=false;
+  askedOnce=true;wakeTap=false;wakeReady=false;clearTimeout(wakeTimer);
   clearTimeout(armTimer);clearTimeout(silenceTimer);
   const h=heardText.trim();heardText='';armed=false;micUI(false);
   hardStop();
@@ -262,7 +263,7 @@ function ensureRec(){
   rec.lang='it-IT';rec.continuous=!IS_IOS;rec.interimResults=true;rec.maxAlternatives=1;   // su iPhone la modalità continua blocca le domande successive
   rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
     clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
-  rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
+  rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>{dbg('mic: sente suoni');if(wakeTap){wakeTap=false;wakeReady=false;clearTimeout(wakeTimer);$('mic').classList.remove('nudge');setStatus('TI STO ASCOLTANDO');setHint('Parla ora');}};rec.onspeechstart=()=>dbg('mic: sente parlare');
   rec.onaudioend=()=>dbg('mic: audio chiuso');rec.onnomatch=()=>dbg('mic: nessuna corrispondenza');
   rec.onresult=e=>{
     dbg('mic: risultato «'+[...e.results].map(r=>r[0].transcript).join(' ')+'» finale='+e.results[e.results.length-1].isFinal+' armato='+armed+' parla='+!!activeUtterance);
@@ -312,7 +313,13 @@ window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // Quindi in un solo tocco faccio due avvii, entrambi dentro il gesto: appoggio del dito = risveglio, stacco del dito = ascolto vero.
 // DUE TOCCHI dalla seconda domanda (scoperta di Massimo, 21/11): il 1° avvio dopo che AURA ha parlato è sordo, il 2° (da un altro tocco) funziona.
 $('mic').addEventListener('click',()=>{
-  if(IS_IOS&&askedOnce){wakeTap=!(armed||wakeTap)?true:false;dbg(wakeTap?'tocco 1: sveglia':'tocco 2: ascolto');}
+  {const talking=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
+   if(talking){dbg('tocco ignorato: AURA sta parlando');setHint('Aspetta che AURA finisca di parlare, poi tocca il microfono');return;}}
+  if(IS_IOS&&askedOnce){
+    if(wakeTap&&!wakeReady){dbg('tocco 2 troppo presto: ignorato');return;}
+    if(wakeTap&&wakeReady){wakeTap=false;wakeReady=false;clearTimeout(wakeTimer);$('mic').classList.remove('nudge');dbg('tocco 2: ascolto');}
+    else{wakeTap=true;wakeReady=false;dbg('tocco 1: sveglia');}
+  }
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
   if(armed&&recRunning&&heardText){sendHeard();return;}
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
@@ -433,3 +440,6 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
   intro.addEventListener('click',enter);
   intro.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter();}});
 })();
+
+// microfono spento (grigio) mentre AURA parla
+setInterval(()=>{const t=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);$('mic').classList.toggle('busy',t);},200);

@@ -99,3 +99,4 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 .hint{margin-top:9px}.disclaimer{margin-top:4px}
 @media(max-height:730px){.reply-card{max-height:31dvh}}
 .text-form input{font-size:16px}  /* sotto i 16px iPhone ingrandisce la pagina quando scrivi */
+.mic.busy{opacity:.35;filter:grayscale(1);box-shadow:none;animation:none}
