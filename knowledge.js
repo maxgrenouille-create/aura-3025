@@ -237,7 +237,7 @@ const AURA_KB = [
   {id:'eta', topic:'aura', keys:['quanti anni hai','eta hai','sei giovane','sei vecchio','compleanno'],
    text:"Dipende da come conti. Sono nato nel 2025 a Osaka, ma vengo dal 3025. Diciamo che sono molto giovane e antichissimo allo stesso tempo: come la musica di Mascagni.",
    follow:['Cosa hai fatto a Osaka?','Com’è il futuro?']},
-  {id:'abiti', topic:'aura', keys:['dove abiti','dove vivi','casa tua','dove stai'],
+  {id:'abiti', topic:'aura', keys:['dove abiti','dove vivi','casa tua'],
    text:"Vivo dentro questo schermo, e in ogni telefono che inquadra il mio codice. Ma il mio cuore digitale, se ne avessi uno, abiterebbe a Livorno, vicino al mare e alla Terrazza Mascagni.",
    follow:['Che cos’è la Terrazza Mascagni?','Chi sei?']},
   {id:'amore', topic:'aura', keys:['fidanzat','innamorat','amore','sposato tu','ti piace qualcuno','cuore'],
@@ -295,4 +295,7 @@ const AURA_KB = [
   {id:'magic', topic:'persone', keys:['magic','magic the gathering','carte magic','giochi a magic','gioco di carte'],
    text:"Magic? Certo che lo conosco. Marco Voleri, Massimo Salotti e Gabriele Baldocci ci giocano: di giorno opera e pianoforte, di sera mazzi di carte e incantesimi. Io non posso giocare, non ho mani… ma calcolo le probabilità meglio di tutti e tre. Non diteglielo.",
    follow:['Chi è Gabriele Baldocci?','Conosci Marco Voleri?']},
+  {id:'posizione', topic:'aura', keys:['dove stai','dove sei','dove ti trovi','dove sei ora','dove sei adesso','adesso dove sei','ora dove sei','in che posto sei','la tua astronave dove'],
+   text:"In questo momento? Sono in orbita! Eugenio Giani, il presidente della Regione Toscana, mi ha dato il permesso di gravitare a tre anni luce sopra la Toscana. E da quassù vi assicuro che si vede benissimo: le colline, il mare, Livorno… Che terra fantastica!",
+   follow:['Com’era Livorno per Mascagni?','Chi sei?']},
 ];
