@@ -18,8 +18,10 @@ function stopSpeaking(){
 
 function setStatus(message){$('stageStatus').textContent=message;}
 function setHint(message){$('hint').textContent=message;}
+function cardFade(){const c=document.querySelector('.reply-card');if(!c)return;c.classList.toggle('more',c.scrollHeight-c.scrollTop-c.clientHeight>8);}
+document.querySelector('.reply-card')?.addEventListener('scroll',cardFade,{passive:true});
 function render(text,actions=[],follow=[]){
-  $('reply').textContent=text;
+  $('reply').textContent=text;setTimeout(()=>{const c=document.querySelector('.reply-card');if(c){c.scrollTop=0;cardFade();}},0);
   const box=$('actionArea');box.replaceChildren();box.hidden=!actions.length&&!follow.length;
   for(const action of actions){const link=document.createElement('a');link.className='action-link';link.href=action.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=action.label;box.append(link);}
   if(follow.length){const row=document.createElement('div');row.className='follow-row';
