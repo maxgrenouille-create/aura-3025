@@ -284,4 +284,10 @@ const AURA_KB = [
   {id:'giordano', topic:'opera', keys:['giordano','umberto giordano','andrea chenier','chenier','fedora'],
    text:"Umberto Giordano, pugliese, è un altro verista della Giovane scuola. Il suo capolavoro è Andrea Chénier, del 1896, ambientato durante la Rivoluzione francese; poi Fedora, del 1898. Anche Mascagni, anni dopo, raccontò la Rivoluzione con Il piccolo Marat.",
    follow:['Parlami del Piccolo Marat','Chi sono gli altri veristi?']},
+  {id:'baldocci', topic:'persone', keys:['baldocci','gabriele baldocci','gabriele'],
+   text:"Gabriele Baldocci è un pianista straordinario: talento puro, di quelli che quando si siedono al pianoforte cambiano l'aria della sala. E vi svelo un segreto: anche lui gioca a Magic, come Marco Voleri e Massimo Salotti. Pianisti, tenori, direttori artistici… e di sera, tutti a duellare con le carte. Io osservo e prendo appunti.",
+   follow:['Conosci Marco Voleri?','Conosci Massimo Salotti?','Giochi a Magic?']},
+  {id:'magic', topic:'persone', keys:['magic','magic the gathering','carte magic','giochi a magic','gioco di carte'],
+   text:"Magic? Certo che lo conosco. Marco Voleri, Massimo Salotti e Gabriele Baldocci ci giocano: di giorno opera e pianoforte, di sera mazzi di carte e incantesimi. Io non posso giocare, non ho mani… ma calcolo le probabilità meglio di tutti e tre. Non diteglielo.",
+   follow:['Chi è Gabriele Baldocci?','Conosci Marco Voleri?']},
 ];
