@@ -153,7 +153,7 @@ function speak(_voice,text,retry=false){
     auraAvatar.liveWord(word);
   };
   const finish=()=>{if(activeUtterance===u)stopSpeaking();};
-  u.onend=finish;
+  u.onend=()=>{const mine=activeUtterance===u;finish();if(mine&&_voice!=='ciao')setTimeout(()=>window.auraRearm&&window.auraRearm(),450);};
   u.onerror=e=>{if(activeUtterance!==u)return;finish();if(e.error!=='interrupted'&&e.error!=='canceled')setHint('Voce non disponibile. Puoi leggere la risposta qui sopra.');};
   setStatus('AURA STA PER PARLARE');
   synth.speak(u);
@@ -175,7 +175,8 @@ function ask(question){
   setHint('Domanda ricevuta · puoi parlare ancora oppure scrivere');
   speak(result.voice,result.text);
   $('question').value='';
-  if(result.voice==='ciao')farewellWhenDone();
+  if(result.voice==='ciao'){window.auraEndDialog&&window.auraEndDialog();farewellWhenDone();}
+  else if(!$('voiceToggle').checked||!window.speechSynthesis)setTimeout(()=>window.auraRearm&&window.auraRearm(),900);
 }
 function farewellWhenDone(){
   const t0=Date.now();
@@ -193,10 +194,23 @@ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
 // Su iPhone Safari fa funzionare solo la prima sessione di riconoscimento creata:
 // quindi ne creo una, la tengo accesa (continuous) e la riavvio sempre sullo stesso oggetto.
 // Il pulsante non apre una nuova sessione: "arma" l'ascolto della prossima domanda.
-let rec=null,recRunning=false,armed=false,armIndex=0,lastLen=0,heardText='',armTimer=0,silenceTimer=0;
+let rec=null,recRunning=false,armed=false,armIndex=0,lastLen=0,heardText='',armTimer=0,silenceTimer=0,dialog=false;
+// Modalità dialogo: dopo ogni risposta AURA azzera ciò che ha sentito e torna ad ascoltare da sola
+function rearm(){
+  if(!dialog)return;
+  armed=true;heardText='';$('question').value='';armIndex=lastLen;
+  setStatus('UN ISTANTE…');
+  if(rec&&recRunning){try{rec.stop();}catch{}}          // azzera il parlato: la stessa sessione riparte pulita
+  else if(rec){try{rec.start();}catch{}}
+  else micUI(true);
+  clearTimeout(armTimer);
+  armTimer=setTimeout(()=>{if(armed&&!heardText){dialog=false;armed=false;micUI(false);setHint('Conversazione in pausa: tocca il microfono per riprendere.');}},20000);
+}
+function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);micUI(false);if(msg)setHint(msg);}
+window.auraRearm=rearm;window.auraEndDialog=endDialog;
 function micUI(on){
   $('mic').classList.toggle('listening',on);
-  if(on){setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per inviare');}
+  if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Modalità dialogo: parla quando vuoi · tocca il microfono per fermare':'Parla ora…');}
   else if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');
 }
 function sendHeard(){
@@ -208,7 +222,7 @@ function ensureRec(){
   if(rec||!SpeechRecognition)return rec;
   rec=new SpeechRecognition();
   rec.lang='it-IT';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
-  rec.onstart=()=>{recRunning=true;lastLen=0;armIndex=0;};
+  rec.onstart=()=>{recRunning=true;lastLen=0;armIndex=0;if(armed)micUI(true);};
   rec.onresult=e=>{
     lastLen=e.results.length;
     if(!armed||activeUtterance){armIndex=lastLen;return;}      // non sta ascoltando una domanda, o AURA sta parlando
@@ -238,11 +252,12 @@ window.auraMicPrime=primeMic;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rec&&!recRunning){try{rec.start();}catch{}}});
 $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
-  if(armed){sendHeard();return;}                                // secondo tocco = invia subito
+  if(armed){if(heardText)sendHeard();else endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
+  dialog=true;
   stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
   ensureRec();armed=true;armIndex=lastLen;heardText='';$('question').value='';micUI(true);
   if(!recRunning){try{rec.start();}catch{}}
-  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText){armed=false;micUI(false);setHint('Non ti ho sentito: tocca il microfono e riprova.');}},10000);
+  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
 });
 
 function closeSettings(){MODAL.hidden=true;}
