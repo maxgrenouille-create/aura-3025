@@ -189,18 +189,34 @@ function farewellWhenDone(){
 $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recWatchdog=0,recStartedAt=0;
+function resetMic(){listening=false;clearTimeout(recWatchdog);$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');}
+function startListening(){
+  // chiude del tutto l'eventuale riconoscimento precedente (su iPhone resta agganciato)
+  if(recognition){const old=recognition;recognition=null;try{old.onresult=old.onend=old.onerror=null;old.abort();}catch{}}
+  let heard='';
+  const rec=new SpeechRecognition();recognition=rec;
+  rec.lang='it-IT';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onstart=()=>{if(recognition!==rec)return;listening=true;recStartedAt=Date.now();$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');
+    clearTimeout(recWatchdog);recWatchdog=setTimeout(()=>{if(recognition===rec){try{rec.stop();}catch{}setTimeout(()=>{if(recognition===rec&&listening){try{rec.abort();}catch{}resetMic();}},1500);}},12000);};
+  rec.onresult=event=>{if(recognition!==rec)return;let txt='';for(let i=0;i<event.results.length;i++)txt+=event.results[i][0].transcript;heard=txt.trim();$('question').value=heard;
+    if(event.results[event.results.length-1].isFinal&&heard){const h=heard;heard='';try{rec.stop();}catch{}setTimeout(()=>ask(h),350);}};
+  rec.onerror=event=>{if(recognition!==rec)return;resetMic();
+    if(event.error==='aborted')return;
+    const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();
+    const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':event.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura. Oppure detta con il microfono della tastiera.':event.error==='no-speech'?'Non ho sentito nulla. Tocca il microfono e riprova.':'Microfono non disponibile ('+event.error+'). Tocca di nuovo il microfono.';
+    setHint(reason);};
+  rec.onend=()=>{if(recognition!==rec)return;if(heard){const h=heard;heard='';setTimeout(()=>ask(h),350);}resetMic();recognition=null;};
+  try{rec.start();}catch(e){resetMic();setHint('Non riesco ad avviare il microfono. Tocca di nuovo o scrivi la domanda.');}
+}
 $('mic').addEventListener('click',()=>{
-  if(listening){recognition?.stop();return;}
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: tocca il campo di testo e usa il microfono della tastiera per dettare.');$('question').focus();return;}
-  stopSpeaking();   // AURA tace mentre ascolta: su iPhone voce e microfono non convivono
-  try{
-    recognition=new SpeechRecognition();recognition.lang='it-IT';recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;let heard='';
-    recognition.onstart=()=>{listening=true;$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');};
-    recognition.onresult=event=>{let txt='';for(let i=0;i<event.results.length;i++)txt+=event.results[i][0].transcript;heard=txt.trim();$('question').value=heard;if(event.results[event.results.length-1].isFinal&&heard){const h=heard;heard='';try{recognition.stop();}catch{}setTimeout(()=>ask(h),350);}};
-    recognition.onerror=event=>{const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':event.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura. Oppure detta con il microfono della tastiera.':event.error==='no-speech'?'Non ho sentito nulla. Riprova o scrivi.':'Microfono non disponibile ('+event.error+'). Tocca il campo di testo e usa il microfono della tastiera.';setHint(reason);};
-    recognition.onend=()=>{if(heard){const h=heard;heard='';setTimeout(()=>ask(h),350);}listening=false;$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');};
-    recognition.start();
-  }catch{setHint('Non riesco ad avviare il microfono. Prova a scrivere la domanda.');$('question').focus();}
+  // un secondo tocco mentre ascolta = fine della domanda
+  if(listening&&recognition&&Date.now()-recStartedAt<12000){try{recognition.stop();}catch{}return;}
+  const wasSpeaking=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
+  stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
+  // su iPhone voce e microfono non convivono: se AURA parlava, l'audio ha bisogno di un attimo
+  if(wasSpeaking){setStatus('TI STO ASCOLTANDO');setTimeout(startListening,350);}else startListening();
 });
 
 function closeSettings(){MODAL.hidden=true;}
