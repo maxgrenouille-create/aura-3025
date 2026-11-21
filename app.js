@@ -35,7 +35,7 @@ memory.history=memory.history||[];
 function saveMemory(){try{localStorage.setItem(MEM_KEY,JSON.stringify(memory));}catch{}}
 const norm=t=>(' '+t.toLocaleLowerCase('it-IT').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’'`]/g,' ').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim()+' ');
 const KB=(typeof AURA_KB!=='undefined'?AURA_KB:[]).map(e=>({...e,nkeys:e.keys.map(k=>norm(k).trim())}));
-const GENERIC=new Set(['mascagni','pietro','cavalleria','rusticana','opere','vita','aura','chi era','storia','compositore']);
+const GENERIC=new Set(['mascagni','pietro','cavalleria','rusticana','opere','vita','aura','chi era','storia','compositore','di cosa parla','trama','fine','finale','debutto','successo','famos','prima volta','ciao','buongiorno','buonasera','salve','hey','ehi']);
 const STOP=new Set('che chi cosa come dove quando quale quali quanto quanti perche per con del della dei delle degli dal dalla nel nella nei sul sulla una uno gli le lo la il di da in su tra fra non piu mi ti si ci vi sei sono era erano e ha hanno ho hai abbiamo mio mia tuo tua suo sua loro questo questa quello quella parlami dimmi raccontami sai conosci puoi vorrei sapere anche ancora molto poco tutto tutti cos fatto fare essere stato stata opera opere mascagni pietro aura'.split(' '));
 for(const e of KB)e.ntext=norm(e.text+' '+e.keys.join(' '));
 const IDF={};{const df={};for(const e of KB){const seen=new Set(e.ntext.trim().split(' ').map(w=>w.length>5?w.slice(0,w.length-2):w));for(const w of seen)df[w]=(df[w]||0)+1;}
@@ -61,13 +61,13 @@ function demoAnswer(question){
   let best=null,bestScore=0;
   for(const e of KB){
     let score=0;
-    for(const k of e.nkeys){if(k&&q.includes(' '+k))score+=GENERIC.has(k)?k.length/3:k.length;}
+    for(const k of e.nkeys){if(k&&q.includes(' '+k))score+=GENERIC.has(k)?k.length/3:k.length+4;}
     if(!score)continue;
     if(aboutMe&&e.topic==='aura')score+=4;
     if(e.topic===last)score+=2;
     if(score>bestScore){best=e;bestScore=score;}
   }
-  if(!best||bestScore<4){
+  if((!best||bestScore<4)&&!/^ (conosci|sai chi e|chi e|chi era|hai mai sentito) /.test(q)){
     const words=q.trim().split(' ').filter(w=>w.length>2&&!STOP.has(w));
     let tb=null,ts=0;
     for(const e of KB){
