@@ -13,3 +13,4 @@ Verificate sul telefono di Massimo il 21/11/2026. Ogni violazione ha già rotto 
 Prima di pubblicare qualsiasi modifica al microfono: test con microfono simulato lento (avvio 2,2 s) e tre domande di fila.
 
 8. Se si tocca il microfono mentre AURA parla: prima zittirla, poi accendere il microfono dopo ~700 ms. Se parte mentre la voce occupa l'audio, su iPhone non sente nulla (scoperto con il registro #debug, 21/11 ore 11:43).
+9. Dopo che AURA ha parlato, iPhone può lasciare l'audio in modalità solo-riproduzione: il mic si apre ma riceve silenzio. Rimedio: navigator.audioSession.type="play-and-record" + speechSynthesis.cancel() prima di ogni ascolto + riavvio automatico se dopo 4 s nessun suono.

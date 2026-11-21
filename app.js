@@ -167,7 +167,9 @@ function fillVoiceSelect(){
 if(synth){fillVoiceSelect();synth.addEventListener?.('voiceschanged',fillVoiceSelect);}
 
 let voiceUnlocked=false;
-function unlockVoice(after){
+function audioDuplex(){try{if(navigator.audioSession){if(navigator.audioSession.type!=='play-and-record')navigator.audioSession.type='play-and-record';dbg('audio: sessione '+navigator.audioSession.type+' stato '+navigator.audioSession.state);}else dbg('audio: audioSession non disponibile');}catch(e){dbg('audio: errore '+e.message);}}
+let soundSeen=false,muteGuard=null,muteRetry=0;
+function unlockVoice(after){audioDuplex();
   // Al prossimo tocco sullo schermo la voce si sblocca e (se serve) riparte.
   const go=()=>{document.removeEventListener('pointerup',go,true);voiceUnlocked=true;after&&after();};
   document.addEventListener('pointerup',go,true);
@@ -257,7 +259,7 @@ function ensureRec(){
   rec.lang='it-IT';rec.continuous=!IS_IOS;rec.interimResults=true;rec.maxAlternatives=1;   // su iPhone la modalità continua blocca le domande successive
   rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
     clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
-  rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
+  rec.onaudiostart=()=>{dbg('mic: audio aperto');clearTimeout(muteGuard);muteGuard=setTimeout(()=>{if(armed&&!soundSeen&&!heardText&&muteRetry<1){muteRetry++;dbg('mic: muto da 4 s, lo riavvio');try{speechSynthesis.cancel();}catch{}audioDuplex();hardStop();setTimeout(()=>{if(armed){ensureRec();try{rec.start();dbg('mic: riavviato');}catch(e){dbg('mic: riavvio fallito '+e.message);micAttention();}}},300);}},4000);};rec.onsoundstart=()=>{soundSeen=true;clearTimeout(muteGuard);dbg('mic: sente suoni');};rec.onspeechstart=()=>dbg('mic: sente parlare');
   rec.onaudioend=()=>dbg('mic: audio chiuso');rec.onnomatch=()=>dbg('mic: nessuna corrispondenza');
   rec.onresult=e=>{
     dbg('mic: risultato «'+[...e.results].map(r=>r[0].transcript).join(' ')+'» finale='+e.results[e.results.length-1].isFinal+' armato='+armed+' parla='+!!activeUtterance);
@@ -289,6 +291,7 @@ function listenNow(){
   if(!dialog||activeUtterance)return;
   $('mic').classList.remove('nudge');
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
+  soundSeen=false;muteRetry=0;try{speechSynthesis.cancel();}catch{}audioDuplex();
   const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();dbg('mic: start() chiamato');}catch(err){dbg('mic: start() fallito '+err.message);}
     clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){setHint('Un istante: il microfono si sta accendendo…');}},2500);};
   go();
