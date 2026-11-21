@@ -123,7 +123,7 @@ const AURA_KB = [
    follow:['Quali opere ha scritto?','Parlami di Iris']},
 
   // ---------- CAVALLERIA RUSTICANA ----------
-  {id:'cavalleria', topic:'cavalleria', keys:['del 1890','nel 1890','cavalleria','trama','storia','di cosa parla','rusticana','ambientat','sicilia','dove si svolge','quando si svolge'],
+  {id:'cavalleria', topic:'cavalleria', keys:['trama di cavalleria','trama della cavalleria','raccontami cavalleria','racconta cavalleria','raccontami la trama','del 1890','nel 1890','cavalleria','trama','storia','di cosa parla','rusticana','ambientat','sicilia','dove si svolge','quando si svolge'],
    text:"Cavalleria rusticana è un'opera in un atto, tratta dalla novella di Giovanni Verga. Siamo in un paese siciliano, la mattina di Pasqua. Turiddu ha lasciato Santuzza per tornare da Lola, che però ha sposato Alfio. Gelosia, onore, una sfida a duello… e un finale che lascia senza fiato.",
    follow:['Chi sono i personaggi?','Come finisce?','Quali sono le arie più famose?']},
   {id:'personaggi', topic:'cavalleria', keys:['personaggi','ruoli','voci','chi canta','cast'],
@@ -196,7 +196,7 @@ const AURA_KB = [
   {id:'opera', topic:'opera', keys:['cos e l opera','che cos e l opera','lirica','melodramma','prima volta','iniziare','consigli','principiante','da dove comincio','cominciare'],
    text:"L'opera è teatro in cui tutto è cantato: storie, sentimenti, conflitti, sostenuti da un'orchestra. Se è la tua prima volta, Cavalleria rusticana è perfetta: dura poco più di un'ora, e succede di tutto.",
    follow:['Di cosa parla Cavalleria rusticana?','Che cos’è il verismo?']},
-  {id:'curiosita', topic:'curiosita', keys:['curiosit','aneddot','raccontami','sorprendimi','qualcosa di interessante','lo sapevi'],
+  {id:'curiosita', topic:'curiosita', keys:['curiosit','aneddot','raccontami qualcosa','raccontami una cosa','sorprendimi','qualcosa di interessante','lo sapevi'],
    text:"Una curiosità: quando Cavalleria vinse il concorso Sonzogno, Mascagni era un maestro di banda quasi sconosciuto in un paese della Puglia. Si dice che fu la moglie a spedire la partitura al concorso. Pochi mesi dopo, il suo nome era famoso in mezzo mondo.",
    follow:['Un’altra curiosità','Chi era Mascagni?']},
   {id:'curiosita2', topic:'curiosita', keys:['altra curiosit','ancora','un altra','dimmi altro'],

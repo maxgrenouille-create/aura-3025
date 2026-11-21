@@ -120,8 +120,12 @@ function demoAnswer(question){
   if(best&&bestScore>=4){
     ({text,id,topic}=best);actions=best.actions||[];follow=best.follow||[];
     if(best.texts&&best.texts.length){memory.rot=memory.rot||{};const n=(memory.rot[id]||0)%best.texts.length;text=best.texts[n];memory.rot[id]=n+1;}
+    else if(typeof AURA_VAR!=='undefined'&&AURA_VAR[id]){   // tre versioni (breve, media, lunga) scelte a caso, mai la stessa due volte di fila
+      const opts=[AURA_VAR[id][0],best.text,AURA_VAR[id][1]];memory.var=memory.var||{};
+      let n;do{n=Math.floor(Math.random()*opts.length);}while(n===memory.var[id]&&opts.length>1);
+      memory.var[id]=n;text=opts[n];}
     if(memory.name&&['saluto','grazie','ciao'].includes(id))text=`${memory.name}, `+text.charAt(0).toLowerCase()+text.slice(1);
-    if(memory.history.at(-1)?.q===q&&id!=='curiosita2'&&!best.texts)text='Te l’ho appena detto, ma lo ripeto volentieri: '+text.charAt(0).toLowerCase()+text.slice(1);
+    if(false&&memory.history.at(-1)?.q===q)text='Te l’ho appena detto, ma lo ripeto volentieri: '+text.charAt(0).toLowerCase()+text.slice(1);
   }else if(/^ (conosci|sai chi e|chi e|chi era|hai mai sentito) /.test(q)){
     const who=question.replace(/^\s*(conosci|sai chi è|sai chi e|chi è|chi e|chi era|hai mai sentito parlare di|hai mai sentito)\s*/i,'').replace(/[?!.]+$/,'').trim();
     id='persona';topic=last;
