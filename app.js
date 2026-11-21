@@ -169,9 +169,7 @@ function fillVoiceSelect(){
 if(synth){fillVoiceSelect();synth.addEventListener?.('voiceschanged',fillVoiceSelect);}
 
 let voiceUnlocked=false;
-function audioDuplex(){try{const a=navigator.audioSession;if(!a)return;if(!window.__asLogged){window.__asLogged=1;dbg('audio: sessione trovata '+a.type);}if(a.type!=='auto'){a.type='auto';dbg('audio: sessione rimessa su auto');}}catch(e){}}   // riporta Safari alla modalità normale; MAI 'play-and-record' (21/11)
-let soundSeen=false,muteGuard=null,muteRetry=0,warmPending=false;
-function unlockVoice(after){audioDuplex();
+function unlockVoice(after){
   // Al prossimo tocco sullo schermo la voce si sblocca e (se serve) riparte.
   const go=()=>{document.removeEventListener('pointerup',go,true);voiceUnlocked=true;after&&after();};
   document.addEventListener('pointerup',go,true);
@@ -187,7 +185,7 @@ function speak(_voice,text,retry=false){
   u.lang=v?.lang||'it-IT';u.rate=0.97;u.pitch=isMale(v)?0.92:0.72;u.volume=1;
   activeUtterance=u;
   let started=false;
-  u.onstart=()=>{dbg('voce: inizia');window.__spoke=true;if(activeUtterance!==u)return;started=true;auraAvatar.speakLive();setStatus('AURA STA PARLANDO');};
+  u.onstart=()=>{dbg('voce: inizia');if(activeUtterance!==u)return;started=true;auraAvatar.speakLive();setStatus('AURA STA PARLANDO');};
   u.onboundary=e=>{
     if(activeUtterance!==u||e.name&&e.name!=='word')return;
     const rest=u.text.slice(e.charIndex);const word=(rest.match(/^\S+/)||[''])[0];
@@ -248,7 +246,9 @@ function micUI(on){
   else if(['TI STO ASCOLTANDO','UN ISTANTE…'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
 }
 function hardStop(){if(rec){try{rec.abort();}catch{}}}           // spegne davvero il microfono
+let askedOnce=false;
 function sendHeard(){
+  askedOnce=true;
   clearTimeout(armTimer);clearTimeout(silenceTimer);
   const h=heardText.trim();heardText='';armed=false;micUI(false);
   hardStop();
@@ -261,7 +261,7 @@ function ensureRec(){
   rec.lang='it-IT';rec.continuous=!IS_IOS;rec.interimResults=true;rec.maxAlternatives=1;   // su iPhone la modalità continua blocca le domande successive
   rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
     clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
-  rec.onaudiostart=()=>{dbg('mic: audio aperto');if(warmPending){warmPending=false;setTimeout(()=>{if(!armed||soundSeen||heardText)return;dbg('mic: secondo avvio');ensureRec();recRunning=false;try{rec.start();}catch(e){dbg('mic: secondo avvio fallito '+e.message);armed=false;micUI(false);micAttention();}},250);return;}clearTimeout(muteGuard);muteGuard=setTimeout(()=>{if(armed&&!soundSeen&&!heardText&&muteRetry<1){muteRetry++;dbg('mic: muto da 4 s, lo riavvio');try{speechSynthesis.cancel();}catch{}audioDuplex();hardStop();setTimeout(()=>{if(armed){ensureRec();try{rec.start();dbg('mic: riavviato');}catch(e){dbg('mic: riavvio fallito '+e.message);micAttention();}}},300);}},4000);};rec.onsoundstart=()=>{soundSeen=true;clearTimeout(muteGuard);dbg('mic: sente suoni');};rec.onspeechstart=()=>dbg('mic: sente parlare');
+  rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
   rec.onaudioend=()=>dbg('mic: audio chiuso');rec.onnomatch=()=>dbg('mic: nessuna corrispondenza');
   rec.onresult=e=>{
     dbg('mic: risultato «'+[...e.results].map(r=>r[0].transcript).join(' ')+'» finale='+e.results[e.results.length-1].isFinal+' armato='+armed+' parla='+!!activeUtterance);
@@ -293,7 +293,6 @@ function listenNow(){
   if(!dialog||activeUtterance)return;
   $('mic').classList.remove('nudge');
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
-  soundSeen=false;muteRetry=0;warmPending=IS_IOS&&!!window.__spoke;window.__spoke=false;if(warmPending)dbg('mic: AURA ha parlato, faccio il doppio avvio');
   const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();dbg('mic: start() chiamato');}catch(err){dbg('mic: start() fallito '+err.message);}
     clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){setHint('Un istante: il microfono si sta accendendo…');}},2500);};
   go();
@@ -308,16 +307,20 @@ function rearm(){if(!dialog)return;if(IS_IOS){micAttention();return;}setTimeout(
 function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);hardStop();micUI(false);if(msg)setHint(msg);}
 window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // all'ingresso: chiede subito il permesso del microfono, poi lo spegne
+// SCOPERTA DI MASSIMO (21/11): dopo la prima risposta il primo avvio è sordo, il secondo (fatto da un tocco) funziona.
+// Quindi in un solo tocco faccio due avvii, entrambi dentro il gesto: appoggio del dito = risveglio, stacco del dito = ascolto vero.
+$('mic').addEventListener('touchstart',()=>{
+  if(!IS_IOS||!askedOnce||armed||!SpeechRecognition)return;
+  try{if(window.speechSynthesis&&speechSynthesis.speaking){stopSpeaking();speechSynthesis.cancel();}}catch{}
+  ensureRec();try{rec.start();dbg('mic: risveglio (dito appoggiato)');}catch(e){dbg('mic: risveglio non riuscito '+e.message);}
+},{passive:true});
 $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
   if(armed&&recRunning&&heardText){sendHeard();return;}
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
   const speakingNow=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
   dbg('tocco microfono · AURA parlava='+speakingNow);
-  if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}
-    // iPhone: se il microfono parte mentre la voce occupa ancora l'audio, non sente nulla. Aspetto che l'audio si liberi.
-    armed=false;dialog=true;setStatus('UN ISTANTE…');$('mic').classList.remove('nudge');
-    setTimeout(()=>{dbg('mic: avvio dopo aver zittito AURA');listenNow();},IS_IOS?700:250);return;}
+  if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}}
   armed=false;dialog=true;listenNow();
 });
 
