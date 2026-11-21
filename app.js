@@ -219,10 +219,20 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
   function placeShip(){
     const vw=innerWidth,vh=innerHeight,m=SHIP;
     scene.style.backgroundImage=`url(${m.src})`;
-    const k=Math.max(vw/m.w,vh/m.h),iw=m.w*k,ih=m.h*k;
-    const left=Math.min(0,Math.max(vw-iw,vw/2-m.fx*iw));        // inquadra la nave anche sui telefoni
-    scene.style.backgroundSize=`${iw}px ${ih}px`;scene.style.backgroundPosition=`${left}px ${(vh-ih)/2}px`;
-    scene.style.transformOrigin=`${left+m.bx*iw}px ${(vh-ih)/2+m.by*ih}px`;
+    let iw,ih,left,top;
+    if(vw/vh<1){
+      // telefono in verticale: l'astronave intera, larga quanto lo schermo, sfumata in alto e in basso
+      iw=vw*1.08;ih=iw*m.h/m.w;left=(vw-iw)/2;top=vh*.40-ih/2;
+      const a=top,b=top+ih*.16,c=top+ih*.84,d=top+ih;
+      const mask=`linear-gradient(to bottom,transparent ${a}px,#000 ${b}px,#000 ${c}px,transparent ${d}px)`;
+      scene.style.webkitMaskImage=scene.style.maskImage=mask;
+    }else{
+      const k=Math.max(vw/m.w,vh/m.h);iw=m.w*k;ih=m.h*k;
+      left=Math.min(0,Math.max(vw-iw,vw/2-m.fx*iw));top=(vh-ih)/2;
+      scene.style.webkitMaskImage=scene.style.maskImage='none';
+    }
+    scene.style.backgroundSize=`${iw}px ${ih}px`;scene.style.backgroundPosition=`${left}px ${top}px`;
+    scene.style.transformOrigin=`${left+m.bx*iw}px ${top+m.by*ih}px`;
   }
   placeShip();addEventListener('resize',placeShip);
   let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true;
@@ -233,7 +243,13 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
   function draw(now){
     if(!running)return;requestAnimationFrame(draw);
     const dt=Math.min(.05,(now-last)/1000);last=now;
-    ctx.clearRect(0,0,W,H);if(warp<=0)return;
+    ctx.clearRect(0,0,W,H);
+    if(warp<=0){
+      for(const s of stars){const tw=.35+.65*Math.abs(Math.sin(now/900*(s.tw||(s.tw=.4+Math.random()*1.6))+s.x*9));
+        const x=(s.x*.5+.5)*W,y=(s.y*.5+.5)*H,r=(1-s.z)*1.1+.25;
+        ctx.fillStyle=`rgba(225,235,255,${(1-s.z)*.8*tw})`;ctx.fillRect(x,y,r,r);}
+      return;
+    }
     const cx=W/2,cy=H*.45,f=Math.max(W,H)*.55;
     const speed=.05+warp*warp*3.2;
     ctx.globalCompositeOperation='lighter';

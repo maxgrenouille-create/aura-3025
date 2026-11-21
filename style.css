@@ -73,7 +73,7 @@
 
 /* astronave dettagliata (immagine) */
 .ship-scene{position:absolute;inset:0;background-color:#020407;background-repeat:no-repeat;will-change:transform;animation:sceneDrift 18s ease-in-out infinite alternate}
-.intro-stars{z-index:1}
+.intro-stars{z-index:1;pointer-events:none}
 .intro-cta{z-index:2;text-shadow:0 2px 12px #000}
 .intro-flash{z-index:3}
 .intro.entering .ship-scene{animation-play-state:paused;transition:opacity .6s ease-in;opacity:0}
