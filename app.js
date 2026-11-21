@@ -309,7 +309,10 @@ $('mic').addEventListener('click',()=>{
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
   const speakingNow=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
   dbg('tocco microfono · AURA parlava='+speakingNow);
-  if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}}
+  if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}
+    // iPhone: se il microfono parte mentre la voce occupa ancora l'audio, non sente nulla. Aspetto che l'audio si liberi.
+    armed=false;dialog=true;setStatus('UN ISTANTE…');$('mic').classList.remove('nudge');
+    setTimeout(()=>{dbg('mic: avvio dopo aver zittito AURA');listenNow();},IS_IOS?700:250);return;}
   armed=false;dialog=true;listenNow();
 });
 
