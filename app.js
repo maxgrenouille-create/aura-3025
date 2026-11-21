@@ -242,10 +242,11 @@ function sendHeard(){
   if(h)setTimeout(()=>ask(h),350);                               // AURA risponde a microfono spento
 }
 function ensureRec(){
-  if(rec||!SpeechRecognition)return rec;
+  if(!SpeechRecognition)return null;
+  if(rec){const old=rec;try{old.onresult=old.onerror=old.onend=old.onstart=null;old.abort();}catch{}}
   rec=new SpeechRecognition();
-  rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=4;
-  rec.onstart=()=>{recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);else hardStop();};
+  rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
+  rec.onstart=()=>{recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);};
   rec.onresult=e=>{
     if(!armed||activeUtterance)return;
     let txt='',fin=false;
@@ -271,19 +272,16 @@ function ensureRec(){
 // accende il microfono da zero per una nuova domanda
 function listenNow(){
   if(!dialog||activeUtterance)return;
-  ensureRec();if(!rec)return;
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
-  const go=()=>{try{rec.start();}catch{}
+  const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();}catch{}
     clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){armed=false;micUI(false);setHint('Tocca il microfono per rispondere.');}},1800);};
-  if(recRunning){hardStop();setTimeout(go,300);}else go();
+  go();
   clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
 }
 function rearm(){if(dialog)setTimeout(listenNow,300);}
 function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);hardStop();micUI(false);if(msg)setHint(msg);}
 window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // all'ingresso: chiede subito il permesso del microfono, poi lo spegne
-function primeMic(){const r=ensureRec();if(r&&!recRunning){armed=false;try{r.start();}catch{}}}
-window.auraMicPrime=primeMic;
 $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
   if(armed&&recRunning){if(heardText)sendHeard();else endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
@@ -379,7 +377,6 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato a bordo, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Benvenuto a bordo, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
     // la voce parte subito, dentro il tocco: così il telefono non la blocca
     if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
-    window.auraMicPrime&&window.auraMicPrime();   // il microfono si apre ora, una volta per tutta la visita
     intro.classList.add('entering');
     const t0=performance.now();
     (function accel(){const k=Math.max(0,(performance.now()-t0-250)/1150);warp=Math.min(1,k);if(k<1.6)requestAnimationFrame(accel);})();
