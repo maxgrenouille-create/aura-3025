@@ -70,3 +70,11 @@
 @keyframes enginePulse{0%,100%{opacity:.55}50%{opacity:.95}}
 @media (prefers-reduced-motion:reduce){.ship-wrap,.ship *{animation:none!important}}
 .ship .bridge{animation:bridgeGlow 2.2s ease-in-out infinite}@keyframes bridgeGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+
+/* astronave dettagliata (immagine) */
+.ship-scene{position:absolute;inset:0;background:#020407 center/cover no-repeat;will-change:transform;animation:sceneDrift 18s ease-in-out infinite alternate}
+.intro-stars{z-index:1}
+.intro-cta{z-index:2;text-shadow:0 2px 12px #000}
+.intro-flash{z-index:3}
+.intro.entering .ship-scene{animation:none;transition:transform 1.75s cubic-bezier(.6,0,.9,.3);transform:scale(13)}
+@keyframes sceneDrift{from{transform:scale(1)}to{transform:scale(1.06)}}
