@@ -213,33 +213,35 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
 (()=>{
   const intro=$('startAura');if(!intro)return;
   const cv=$('introStars'),ctx=cv.getContext('2d');
-  // immagine dell'astronave: verticale per i telefoni, orizzontale per i computer
-  const SHIP={portrait:{src:'assets/intro/ship-portrait.jpg?v=20261121102459',w:1100,h:2000,bx:.4957,by:.2578},landscape:{src:'assets/intro/ship-landscape.jpg?v=20261121102459',w:2400,h:1500,bx:.475,by:.2529}};
+  // immagine dell'astronave (copre lo schermo; si mette a fuoco sulla cupola di comando)
+  const SHIP={src:'assets/intro/ship.jpg?v=20261121102808',w:1672,h:941,bx:.36,by:.22,fx:.42};
   const scene=$('shipScene');
   function placeShip(){
-    const vw=innerWidth,vh=innerHeight,m=vw/vh<1?SHIP.portrait:SHIP.landscape;
-    if(scene.dataset.src!==m.src){scene.style.backgroundImage=`url(${m.src})`;scene.dataset.src=m.src;}
-    const k=Math.max(vw/m.w,vh/m.h),iw=m.w*k,ih=m.h*k;          // background-size: cover, centrato
-    scene.style.transformOrigin=`${(vw-iw)/2+m.bx*iw}px ${(vh-ih)/2+m.by*ih}px`;
+    const vw=innerWidth,vh=innerHeight,m=SHIP;
+    scene.style.backgroundImage=`url(${m.src})`;
+    const k=Math.max(vw/m.w,vh/m.h),iw=m.w*k,ih=m.h*k;
+    const left=Math.min(0,Math.max(vw-iw,vw/2-m.fx*iw));        // inquadra la nave anche sui telefoni
+    scene.style.backgroundSize=`${iw}px ${ih}px`;scene.style.backgroundPosition=`${left}px ${(vh-ih)/2}px`;
+    scene.style.transformOrigin=`${left+m.bx*iw}px ${(vh-ih)/2+m.by*ih}px`;
   }
   placeShip();addEventListener('resize',placeShip);
   let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true;
-  const stars=Array.from({length:260},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
+  const stars=Array.from({length:650},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
   function size(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
   size();addEventListener('resize',size);
   let last=performance.now();
   function draw(now){
     if(!running)return;requestAnimationFrame(draw);
     const dt=Math.min(.05,(now-last)/1000);last=now;
-    const speed=.035+warp*2.6;
+    const speed=.035+warp*3.4;
     ctx.clearRect(0,0,W,H);if(warp<=0)return;
     const o=getComputedStyle(scene).transformOrigin.split(' ').map(parseFloat);const cx=o[0]||W/2,cy=o[1]||H*.4,f=Math.max(W,H)*.5;
     for(const s of stars){
       s.pz=s.z;s.z-=speed*dt;
       if(s.z<=.02){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=1;s.pz=1;}
-      const tail=1+warp*7,sx=cx+s.x/s.z*f*.5,sy=cy+s.y/s.z*f*.5,px=cx+s.x/(s.z+(s.pz-s.z)*tail)*f*.5,py=cy+s.y/(s.z+(s.pz-s.z)*tail)*f*.5;
+      const tail=1+warp*22,sx=cx+s.x/s.z*f*.5,sy=cy+s.y/s.z*f*.5,px=cx+s.x/(s.z+(s.pz-s.z)*tail)*f*.5,py=cy+s.y/(s.z+(s.pz-s.z)*tail)*f*.5;
       const a=Math.min(1,(1-s.z)*1.4),r=Math.max(.4,(1-s.z)*1.8);
-      ctx.strokeStyle=`rgba(${200+55*warp|0},${235},${255},${a})`;ctx.lineWidth=r;
+      ctx.strokeStyle=`rgba(${215+40*warp|0},${238},${255},${Math.min(1,a*(.6+warp))})`;ctx.lineWidth=r*(1+warp*.8);
       ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sx+.01,sy+.01);ctx.stroke();
     }
   }
@@ -253,7 +255,7 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
     intro.classList.add('entering');
     const t0=performance.now();
-    (function accel(){const k=(performance.now()-t0)/1400;warp=Math.min(1,k*k);if(k<1.6)requestAnimationFrame(accel);})();
+    (function accel(){const k=(performance.now()-t0)/1100;warp=Math.min(1,k*k*1.3);if(k<1.6)requestAnimationFrame(accel);})();
     setTimeout(()=>{window.aura3d?.intro?.();render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);},1500);
     setTimeout(()=>{intro.classList.add('leaving');if($('voiceToggle').checked)speak('saluto',hello);},1900);
     setTimeout(()=>{running=false;intro.remove();},2900);
