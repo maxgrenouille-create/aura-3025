@@ -108,6 +108,7 @@ const fragmentShader = /* glsl */`
   void main() {
     vec4 tex = texture2D(uMap, vUv);
     float alpha = uUseMask > 0.5 ? texture2D(uMask, vUv).r : tex.a;
+    if (uUseMask > 0.5) alpha *= smoothstep(0.0, 0.07, vUv.x) * smoothstep(1.0, 0.93, vUv.x) * smoothstep(0.0, 0.10, vUv.y);
     if (uUseMask < 0.5) alpha *= smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x) * smoothstep(0.0, 0.06, vUv.y) * smoothstep(1.0, 0.94, vUv.y);
     if (alpha < 0.02) discard;
     vec3 col = uUseMask > 0.5 ? tex.rgb : tex.rgb / max(tex.a, 0.0001); // bocca: colori premoltiplicati
@@ -191,8 +192,15 @@ async function start() {
   scene.add(mouth);
 
   // Sfondo ricostruito, più indietro: dà parallasse reale
-  const bgPlane = new THREE.Mesh(new THREE.PlaneGeometry(IMG_W * S * 2.2, IMG_H * S * 2.2),
-    new THREE.MeshBasicMaterial({map: bgTex}));
+  // Sfondo infinito: piano enorme, la foto al centro e i suoi bordi prolungati all'infinito
+  const BG_K = 14;
+  const bgGeo = new THREE.PlaneGeometry(IMG_W * S * 2.2 * BG_K, IMG_H * S * 2.2 * BG_K);
+  {
+    const uv = bgGeo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, .5 + (uv.getX(i) - .5) * BG_K, .5 + (uv.getY(i) - .5) * BG_K);
+  }
+  bgTex.wrapS = bgTex.wrapT = THREE.ClampToEdgeWrapping;
+  const bgPlane = new THREE.Mesh(bgGeo, new THREE.MeshBasicMaterial({map: bgTex}));
   bgPlane.position.z = -260 * S;
   scene.add(bgPlane);
 
@@ -369,8 +377,8 @@ async function start() {
   // Entrata dall'astronave: la camera parte lontana e scende fino al mezzo busto
   function intro() {
     const g = shotPose('wide', performance.now() / 1000);
-    const far = g.pos.clone().sub(g.target).multiplyScalar(3.2).add(g.target);
-    far.y += .35;
+    const far = g.pos.clone().sub(g.target).multiplyScalar(2.1).add(g.target);
+    far.y += .2;
     cam.from = {pos: far, target: g.target.clone(), fov: g.fov + 6};
     camera.position.copy(far);
     shot = 'wide'; cam.t = 0; cam.dur = 2.8;

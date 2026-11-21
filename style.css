@@ -49,7 +49,7 @@
 /* --- Ingresso: l'astronave di AURA-3025 --- */
 .intro{position:fixed;inset:0;z-index:50;overflow:hidden;cursor:pointer;background:radial-gradient(ellipse at 50% 40%,#18222e 0%,#070b11 60%,#020407 100%);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 .intro-stars{position:absolute;inset:0;width:100%;height:100%}
-.ship-wrap{position:relative;width:min(88vw,560px);margin-top:-18vh;transform-origin:50% 27%;animation:shipFloat 6s ease-in-out infinite;will-change:transform}
+.ship-wrap{position:relative;width:min(96vw,640px);margin-top:-16vh;transform-origin:59.5% 35.5%;animation:shipFloat 6s ease-in-out infinite;will-change:transform}
 .ship{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 40px #000a)}
 .ship .rim circle{fill:#9bf3f7;animation:rimBlink 1.6s infinite}
 .ship .rim circle:nth-child(2n){animation-delay:.4s}.ship .rim circle:nth-child(3n){animation-delay:.8s}
@@ -62,10 +62,11 @@
 .intro.entering .ship-wrap{animation:shipDive 1.7s cubic-bezier(.55,0,.85,.35) forwards}
 .intro.entering .intro-flash{animation:flash 2.3s ease-out forwards}
 .intro.leaving{opacity:0;transition:opacity .9s ease}
-@keyframes shipFloat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-14px) rotate(1deg)}}
-@keyframes shipDive{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-4px) scale(1.35)}100%{transform:translateY(0) scale(26)}}
+@keyframes shipFloat{0%,100%{transform:translate(0,0) rotate(-1.5deg)}50%{transform:translate(6px,-12px) rotate(.5deg)}}
+@keyframes shipDive{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-4px) scale(1.4)}100%{transform:translateY(0) scale(34)}}
 @keyframes flash{0%,55%{opacity:0}75%{opacity:1}100%{opacity:1}}
 @keyframes rimBlink{0%,100%{opacity:.35}50%{opacity:1}}
 @keyframes eyePulse{0%,100%{opacity:.55}50%{opacity:1}}
 @keyframes enginePulse{0%,100%{opacity:.55}50%{opacity:.95}}
 @media (prefers-reduced-motion:reduce){.ship-wrap,.ship *{animation:none!important}}
+.ship .bridge{animation:bridgeGlow 2.2s ease-in-out infinite}@keyframes bridgeGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
