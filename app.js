@@ -172,14 +172,14 @@ $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('qu
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 $('mic').addEventListener('click',()=>{
-  try{if(window.speechSynthesis&&!window.__auraVoiceUnlocked){const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);window.__auraVoiceUnlocked=true;}}catch{}
   if(listening){recognition?.stop();return;}
-  if(!SpeechRecognition){setHint('Il riconoscimento vocale non è supportato qui. Scrivi nel campo accanto.');$('question').focus();return;}
+  if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: tocca il campo di testo e usa il microfono della tastiera per dettare.');$('question').focus();return;}
+  stopSpeaking();   // AURA tace mentre ascolta: su iPhone voce e microfono non convivono
   try{
     recognition=new SpeechRecognition();recognition.lang='it-IT';recognition.interimResults=false;recognition.continuous=false;
     recognition.onstart=()=>{listening=true;$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');};
     recognition.onresult=event=>{const words=event.results?.[0]?.[0]?.transcript;if(words)ask(words);};
-    recognition.onerror=event=>{const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Consenti il microfono dalle impostazioni del browser.':event.error==='no-speech'?'Non ho sentito nulla. Riprova o scrivi.':'Microfono non disponibile ('+event.error+'). Puoi scrivere.';setHint(reason);};
+    recognition.onerror=event=>{const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':event.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura. Oppure detta con il microfono della tastiera.':event.error==='no-speech'?'Non ho sentito nulla. Riprova o scrivi.':'Microfono non disponibile ('+event.error+'). Tocca il campo di testo e usa il microfono della tastiera.';setHint(reason);};
     recognition.onend=()=>{listening=false;$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');};
     recognition.start();
   }catch{setHint('Non riesco ad avviare il microfono. Prova a scrivere la domanda.');$('question').focus();}
