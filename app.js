@@ -189,16 +189,26 @@ function farewellWhenDone(){
 $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recWatchdog=0,recStartedAt=0;
+let recWatchdog=0,recStartedAt=0,micStream=null;
+// Tiene aperto il microfono per tutta la visita: su iPhone l'audio resta in modalità
+// "parla e ascolta" e il riconoscimento funziona anche dopo che AURA ha parlato.
+function warmMic(){
+  if(micStream&&micStream.getAudioTracks().some(t=>t.readyState==='live'))return Promise.resolve(micStream);
+  if(!navigator.mediaDevices?.getUserMedia)return Promise.resolve(null);
+  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})
+    .then(st=>{micStream=st;return st;}).catch(()=>null);
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}});
+window.warmMic=warmMic;
 function resetMic(){listening=false;clearTimeout(recWatchdog);$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');}
 function startListening(){
   // chiude del tutto l'eventuale riconoscimento precedente (su iPhone resta agganciato)
-  if(recognition){const old=recognition;recognition=null;try{old.onresult=old.onend=old.onerror=null;old.abort();}catch{}}
+  if(recognition){const old=recognition;recognition=null;try{old.onresult=old.onend=old.onerror=null;old.abort();}catch{}setTimeout(startListening,250);return;}
   let heard='';
   const rec=new SpeechRecognition();recognition=rec;
   rec.lang='it-IT';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
   rec.onstart=()=>{if(recognition!==rec)return;listening=true;recStartedAt=Date.now();$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');
-    clearTimeout(recWatchdog);recWatchdog=setTimeout(()=>{if(recognition===rec){try{rec.stop();}catch{}setTimeout(()=>{if(recognition===rec&&listening){try{rec.abort();}catch{}resetMic();}},1500);}},12000);};
+    clearTimeout(recWatchdog);recWatchdog=setTimeout(()=>{if(recognition===rec&&!heard){try{rec.abort();}catch{}recognition=null;resetMic();setHint('Non ti ho sentito: tocca di nuovo il microfono e parla.');}},9000);};
   rec.onresult=event=>{if(recognition!==rec)return;let txt='';for(let i=0;i<event.results.length;i++)txt+=event.results[i][0].transcript;heard=txt.trim();$('question').value=heard;
     if(event.results[event.results.length-1].isFinal&&heard){const h=heard;heard='';try{rec.stop();}catch{}setTimeout(()=>ask(h),350);}};
   rec.onerror=event=>{if(recognition!==rec)return;resetMic();
@@ -216,7 +226,8 @@ $('mic').addEventListener('click',()=>{
   const wasSpeaking=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
   stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
   // su iPhone voce e microfono non convivono: se AURA parlava, l'audio ha bisogno di un attimo
-  if(wasSpeaking){setStatus('TI STO ASCOLTANDO');setTimeout(startListening,350);}else startListening();
+  const go=()=>{if(wasSpeaking){setStatus('TI STO ASCOLTANDO');setTimeout(startListening,350);}else startListening();};
+  if(micStream)go();else{warmMic();go();}
 });
 
 function closeSettings(){MODAL.hidden=true;}
@@ -307,6 +318,7 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato a bordo, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Benvenuto a bordo, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
     // la voce parte subito, dentro il tocco: così il telefono non la blocca
     if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
+    warmMic();   // il permesso viene chiesto ora, durante la transizione
     intro.classList.add('entering');
     const t0=performance.now();
     (function accel(){const k=Math.max(0,(performance.now()-t0-250)/1150);warp=Math.min(1,k);if(k<1.6)requestAnimationFrame(accel);})();
