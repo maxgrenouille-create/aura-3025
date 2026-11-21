@@ -175,6 +175,15 @@ function ask(question){
   setHint('Domanda ricevuta · puoi parlare ancora oppure scrivere');
   speak(result.voice,result.text);
   $('question').value='';
+  if(result.voice==='ciao')farewellWhenDone();
+}
+function farewellWhenDone(){
+  const t0=Date.now();
+  (function wait(){
+    const talking=!!activeUtterance;
+    if((talking||Date.now()-t0<2600)&&Date.now()-t0<20000){setTimeout(wait,300);return;}
+    setTimeout(()=>window.auraOutro&&window.auraOutro(),500);
+  })();
 }
 
 $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
@@ -238,7 +247,7 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     scene.style.transformOrigin=`${left+m.bx*iw}px ${top+m.by*ih}px`;
   }
   placeShip();addEventListener('resize',placeShip);
-  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true;
+  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true,dir=1;
   const stars=Array.from({length:420},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
   function size(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
   size();addEventListener('resize',size);
@@ -257,12 +266,13 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     const speed=.05+warp*warp*3.2;
     ctx.globalCompositeOperation='lighter';
     for(const s of stars){
-      s.pz=s.z;s.z-=speed*dt;
+      s.pz=s.z;s.z-=speed*dt*dir;
       if(s.z<=.03){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=1;s.pz=1;}
+      if(s.z>1){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=.06;s.pz=.06;}
       const hx=cx+s.x/s.z*f*.5,hy=cy+s.y/s.z*f*.5;
       if(hx<-50||hx>W+50||hy<-50||hy>H+50)continue;
       const near=1-s.z, a=Math.min(1,near*1.3)*Math.min(1,warp*2.2);
-      const len=Math.hypot(hx-cx,hy-cy)*Math.min(.92,warp*warp*.95);   // lunghezza della scia
+      const len=Math.hypot(hx-cx,hy-cy)*Math.min(.92,warp*warp*.95)*(dir<0?.55:1);   // lunghezza della scia
       const ang=Math.atan2(hy-cy,hx-cx), tx=hx-Math.cos(ang)*len, ty=hy-Math.sin(ang)*len;
       const c=s.c||(s.c=Math.random()<.7?'255,255,255':(Math.random()<.5?'190,220,255':'160,200,255'));
       const wdt=(.5+near*1.4)*(1+warp*.5);
@@ -286,8 +296,21 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     (function accel(){const k=Math.max(0,(performance.now()-t0-250)/1150);warp=Math.min(1,k);if(k<1.6)requestAnimationFrame(accel);})();
     setTimeout(()=>{window.aura3d?.intro?.();render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);},1500);
     setTimeout(()=>{intro.classList.add('leaving');if($('voiceToggle').checked)speak('saluto',hello);},1900);
-    setTimeout(()=>{running=false;intro.remove();},2900);
+    setTimeout(()=>{running=false;intro.hidden=true;intro.classList.remove('entering','leaving');},2900);
   }
+  // ritorno all'astronave dopo il congedo
+  window.auraOutro=()=>{
+    if(!started)return;
+    window.aura3d?.outro?.();
+    setTimeout(()=>{
+      intro.classList.remove('entering','leaving');intro.classList.add('returning');intro.hidden=false;
+      dir=-1;warp=1;running=true;last=performance.now();requestAnimationFrame(draw);
+      const t0=performance.now();
+      (function decel(){const k=(performance.now()-t0)/1500;warp=Math.max(0,1-k);if(k<1)requestAnimationFrame(decel);else{dir=1;warp=0;}})();
+      setTimeout(()=>intro.classList.remove('returning'),700);
+      setTimeout(()=>{started=false;stopSpeaking();setStatus('IN ATTESA DI UNA DOMANDA');},1600);
+    },1100);
+  };
   intro.addEventListener('click',enter);
   intro.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter();}});
 })();

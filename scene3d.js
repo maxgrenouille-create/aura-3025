@@ -358,7 +358,7 @@ async function start() {
     // camera
     pointer.x += (pointer.tx - pointer.x) * Math.min(1, dt * 2.5);
     pointer.y += (pointer.ty - pointer.y) * Math.min(1, dt * 2.5);
-    const goal = shotPose(shot, t);
+    const goal = override ? {pos: override.pos.clone(), target: override.target.clone(), fov: override.fov} : shotPose(shot, t);
     goal.pos.x += pointer.x * .05; goal.pos.y -= pointer.y * .03;
     if (cam.t < 1) {
       cam.t = Math.min(1, cam.t + dt / cam.dur);
@@ -375,16 +375,25 @@ async function start() {
   }
   requestAnimationFrame(frame);
   // Entrata dall'astronave: la camera parte lontana e scende fino al mezzo busto
+  // Congedo: la camera si allontana nel buio (si torna all'astronave)
+  let override = null;
+  function outro() {
+    const g = shotPose('wide', performance.now() / 1000);
+    const far = g.pos.clone().sub(g.target).multiplyScalar(2.4).add(g.target); far.y += .25;
+    cam.from = {pos: camera.position.clone(), target: currentTarget.clone(), fov: camera.fov};
+    override = {pos: far, target: g.target.clone(), fov: g.fov + 8};
+    cam.t = 0; cam.dur = 1.6; manualUntil = performance.now() + 60000;
+  }
   function intro() {
     const g = shotPose('wide', performance.now() / 1000);
     const far = g.pos.clone().sub(g.target).multiplyScalar(2.1).add(g.target);
     far.y += .2;
     cam.from = {pos: far, target: g.target.clone(), fov: g.fov + 6};
     camera.position.copy(far);
-    shot = 'wide'; cam.t = 0; cam.dur = 2.8;
+    override = null; shot = 'wide'; cam.t = 0; cam.dur = 2.8;
     manualUntil = performance.now() + 5200;   // il saluto resta in mezzo busto mentre la camera atterra
   }
-  window.aura3d = {setShot: (n, cut) => setShot(n, {cut, manual: true}), intro};
+  window.aura3d = {setShot: (n, cut) => setShot(n, {cut, manual: true}), intro, outro};
 }
 
 if (portrait.complete) start().catch(e => console.warn('AURA 3D non disponibile', e));
