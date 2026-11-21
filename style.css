@@ -76,5 +76,5 @@
 .intro-stars{z-index:1}
 .intro-cta{z-index:2;text-shadow:0 2px 12px #000}
 .intro-flash{z-index:3}
-.intro.entering .ship-scene{animation:none;transition:transform 1.9s cubic-bezier(.55,0,.8,.4),filter 1.9s ease-in;transform:scale(2.1);filter:blur(10px) brightness(1.7) saturate(1.2)}
+.intro.entering .ship-scene{animation-play-state:paused;transition:opacity .6s ease-in;opacity:0}
 @keyframes sceneDrift{from{transform:scale(1)}to{transform:scale(1.05)}}

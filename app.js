@@ -226,24 +226,33 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
   }
   placeShip();addEventListener('resize',placeShip);
   let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true;
-  const stars=Array.from({length:650},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
+  const stars=Array.from({length:420},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
   function size(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
   size();addEventListener('resize',size);
   let last=performance.now();
   function draw(now){
     if(!running)return;requestAnimationFrame(draw);
     const dt=Math.min(.05,(now-last)/1000);last=now;
-    const speed=.035+warp*3.4;
     ctx.clearRect(0,0,W,H);if(warp<=0)return;
-    const o=getComputedStyle(scene).transformOrigin.split(' ').map(parseFloat);const cx=o[0]||W/2,cy=o[1]||H*.4,f=Math.max(W,H)*.5;
+    const cx=W/2,cy=H*.45,f=Math.max(W,H)*.55;
+    const speed=.05+warp*warp*3.2;
+    ctx.globalCompositeOperation='lighter';
     for(const s of stars){
       s.pz=s.z;s.z-=speed*dt;
-      if(s.z<=.02){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=1;s.pz=1;}
-      const tail=1+warp*22,sx=cx+s.x/s.z*f*.5,sy=cy+s.y/s.z*f*.5,px=cx+s.x/(s.z+(s.pz-s.z)*tail)*f*.5,py=cy+s.y/(s.z+(s.pz-s.z)*tail)*f*.5;
-      const a=Math.min(1,(1-s.z)*1.4),r=Math.max(.4,(1-s.z)*1.8);
-      ctx.strokeStyle=`rgba(${215+40*warp|0},${238},${255},${Math.min(1,a*(.6+warp))})`;ctx.lineWidth=r*(1+warp*.8);
-      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sx+.01,sy+.01);ctx.stroke();
+      if(s.z<=.03){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=1;s.pz=1;}
+      const hx=cx+s.x/s.z*f*.5,hy=cy+s.y/s.z*f*.5;
+      if(hx<-50||hx>W+50||hy<-50||hy>H+50)continue;
+      const near=1-s.z, a=Math.min(1,near*1.3)*Math.min(1,warp*2.2);
+      const len=Math.hypot(hx-cx,hy-cy)*Math.min(.92,warp*warp*.95);   // lunghezza della scia
+      const ang=Math.atan2(hy-cy,hx-cx), tx=hx-Math.cos(ang)*len, ty=hy-Math.sin(ang)*len;
+      const c=s.c||(s.c=Math.random()<.7?'255,255,255':(Math.random()<.5?'190,220,255':'160,200,255'));
+      const wdt=(.5+near*1.4)*(1+warp*.5);
+      if(len<2){ctx.fillStyle=`rgba(${c},${a})`;ctx.beginPath();ctx.arc(hx,hy,wdt*.7,0,6.283);ctx.fill();continue;}
+      const g=ctx.createLinearGradient(tx,ty,hx,hy);g.addColorStop(0,`rgba(${c},0)`);g.addColorStop(.75,`rgba(${c},${a*.55})`);g.addColorStop(1,`rgba(${c},${a})`);
+      ctx.strokeStyle=g;ctx.lineWidth=wdt;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(hx,hy);ctx.stroke();
     }
+    ctx.globalCompositeOperation='source-over';
   }
   requestAnimationFrame(draw);
   let started=false;
@@ -255,7 +264,7 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
     intro.classList.add('entering');
     const t0=performance.now();
-    (function accel(){const k=(performance.now()-t0)/1100;warp=Math.min(1,k*k*1.3);if(k<1.6)requestAnimationFrame(accel);})();
+    (function accel(){const k=Math.max(0,(performance.now()-t0-250)/1150);warp=Math.min(1,k);if(k<1.6)requestAnimationFrame(accel);})();
     setTimeout(()=>{window.aura3d?.intro?.();render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);},1500);
     setTimeout(()=>{intro.classList.add('leaving');if($('voiceToggle').checked)speak('saluto',hello);},1900);
     setTimeout(()=>{running=false;intro.remove();},2900);
