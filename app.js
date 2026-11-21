@@ -214,18 +214,22 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
   const intro=$('startAura');if(!intro)return;
   const cv=$('introStars'),ctx=cv.getContext('2d');
   // immagine dell'astronave (copre lo schermo; si mette a fuoco sulla cupola di comando)
-  const SHIP={src:'assets/intro/ship.jpg?v=20261121102808',w:1672,h:941,bx:.36,by:.22,fx:.42};
+  const SHIP={src:'assets/intro/ship.jpg?v=20261121103839',w:1672,h:941,bx:.36,by:.22,fx:.42};
+  const TALL={src:'assets/intro/ship-tall.jpg?v=20261121103839',w:1672,h:3235,bx:.36,by:.22*941/3235};
   const scene=$('shipScene');
   function placeShip(){
     const vw=innerWidth,vh=innerHeight,m=SHIP;
     scene.style.backgroundImage=`url(${m.src})`;
     let iw,ih,left,top;
     if(vw/vh<1){
-      // telefono in verticale: l'astronave intera, larga quanto lo schermo, sfumata in alto e in basso
-      iw=vw*1.08;ih=iw*m.h/m.w;left=(vw-iw)/2;top=vh*.40-ih/2;
-      const a=top,b=top+ih*.16,c=top+ih*.84,d=top+ih;
-      const mask=`linear-gradient(to bottom,transparent ${a}px,#000 ${b}px,#000 ${c}px,transparent ${d}px)`;
+      // telefono in verticale: astronave e Terra intera, larghe quanto lo schermo
+      const t=TALL;scene.style.backgroundImage=`url(${t.src})`;
+      iw=vw*1.06;ih=iw*t.h/t.w;left=(vw-iw)/2;top=Math.min(vh*.06,vh-ih);
+      const mask=`linear-gradient(to bottom,transparent ${top}px,#000 ${top+ih*.05}px)`;
       scene.style.webkitMaskImage=scene.style.maskImage=mask;
+      scene.style.backgroundSize=`${iw}px ${ih}px`;scene.style.backgroundPosition=`${left}px ${top}px`;
+      scene.style.transformOrigin=`${left+t.bx*iw}px ${top+t.by*ih}px`;
+      return;
     }else{
       const k=Math.max(vw/m.w,vh/m.h);iw=m.w*k;ih=m.h*k;
       left=Math.min(0,Math.max(vw-iw,vw/2-m.fx*iw));top=(vh-ih)/2;
