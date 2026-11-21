@@ -253,7 +253,7 @@ function ensureRec(){
   if(!SpeechRecognition)return null;
   if(rec){const old=rec;try{old.onresult=old.onerror=old.onend=old.onstart=null;old.abort();}catch{}}
   rec=new SpeechRecognition();
-  rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
+  rec.lang='it-IT';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;   // non si chiude alla prima pausa
   rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
     clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
   rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
@@ -266,11 +266,10 @@ function ensureRec(){
     for(let i=0;i<e.results.length;i++){
       const r=e.results[i];let pick=r[0].transcript;
       if(r.isFinal&&r.length>1){let bs=kbScore(pick);for(let a=1;a<r.length;a++){const sc=kbScore(r[a].transcript);if(sc>bs+1){bs=sc;pick=r[a].transcript;}}}
-      txt+=pick;fin=r.isFinal;}
+      txt+=(txt&&!/\s$/.test(txt)&&!/^\s/.test(pick)?' ':'')+pick;fin=r.isFinal;}
     heardText=txt.trim();$('question').value=heardText;
     clearTimeout(silenceTimer);
-    if(fin&&heardText){sendHeard();return;}
-    if(heardText)silenceTimer=setTimeout(sendHeard,1600);
+    if(heardText)silenceTimer=setTimeout(sendHeard,fin?1300:2000);   // invia solo dopo una pausa vera
   };
   rec.onerror=e=>{
     dbg('mic: ERRORE '+e.error);
