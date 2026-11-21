@@ -169,7 +169,7 @@ function fillVoiceSelect(){
 if(synth){fillVoiceSelect();synth.addEventListener?.('voiceschanged',fillVoiceSelect);}
 
 let voiceUnlocked=false;
-function audioDuplex(){}   // NON toccare navigator.audioSession: su iPhone 'play-and-record' rende sordo il riconoscimento (21/11)
+function audioDuplex(){try{const a=navigator.audioSession;if(!a)return;if(!window.__asLogged){window.__asLogged=1;dbg('audio: sessione trovata '+a.type);}if(a.type!=='auto'){a.type='auto';dbg('audio: sessione rimessa su auto');}}catch(e){}}   // riporta Safari alla modalità normale; MAI 'play-and-record' (21/11)
 let soundSeen=false,muteGuard=null,muteRetry=0,warmPending=false;
 function unlockVoice(after){audioDuplex();
   // Al prossimo tocco sullo schermo la voce si sblocca e (se serve) riparte.
