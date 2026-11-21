@@ -254,7 +254,7 @@ function ensureRec(){
   if(!SpeechRecognition)return null;
   if(rec){const old=rec;try{old.onresult=old.onerror=old.onend=old.onstart=null;old.abort();}catch{}}
   rec=new SpeechRecognition();
-  rec.lang='it-IT';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;   // non si chiude alla prima pausa
+  rec.lang='it-IT';rec.continuous=!IS_IOS;rec.interimResults=true;rec.maxAlternatives=1;   // su iPhone la modalità continua blocca le domande successive
   rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
     clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
   rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
@@ -270,6 +270,7 @@ function ensureRec(){
       txt+=(txt&&!/\s$/.test(txt)&&!/^\s/.test(pick)?' ':'')+pick;fin=r.isFinal;}
     heardText=txt.trim();$('question').value=heardText;
     clearTimeout(silenceTimer);
+    if(IS_IOS&&fin&&heardText){sendHeard();return;}
     if(heardText)silenceTimer=setTimeout(sendHeard,fin?1300:2000);   // invia solo dopo una pausa vera
   };
   rec.onerror=e=>{
