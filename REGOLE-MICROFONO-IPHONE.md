@@ -20,3 +20,6 @@ Prima di pubblicare qualsiasi modifica al microfono: test con microfono simulato
 
 12. VERSIONE A DUE TOCCHI (21/11 12:50): dalla seconda domanda, tocco 1 = sveglia (scritta TOCCA ANCORA E PARLA), tocco 2 = ascolto. Il risveglio a un tocco (touchstart+click) NON ha funzionato su iPhone.
 13. (21/11 12:55) Il secondo tocco vale solo quando compare TOCCA ANCORA E PARLA (1,8 s dopo il primo): i tocchi troppo rapidi (0,4 s) fallivano. Mentre AURA parla il microfono è grigio e i tocchi sono ignorati (idea di Massimo).
+
+=== VERSIONE CONFERMATA FUNZIONANTE da Massimo su iPhone (21/11/2026 ore 13:01) — commit 7ce0e87, tag microfono-ok-2026-11-21 ===
+Riassunto: codice mic delle 11:43 (continuous=false, nuovo riconoscitore a ogni domanda, solo da tocco) + microfono grigio e tocchi ignorati mentre AURA parla + dalla 2a domanda due tocchi (1° sveglia, dopo 1,8 s compare TOCCA ANCORA E PARLA, 2° ascolta). NON toccare navigator.audioSession, NON riavviare il microfono da codice senza tocco. Per tornare qui: git checkout microfono-ok-2026-11-21.
