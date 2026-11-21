@@ -189,45 +189,60 @@ function farewellWhenDone(){
 $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recWatchdog=0,recStartedAt=0,micStream=null;
-// Tiene aperto il microfono per tutta la visita: su iPhone l'audio resta in modalità
-// "parla e ascolta" e il riconoscimento funziona anche dopo che AURA ha parlato.
-function warmMic(){
-  if(micStream&&micStream.getAudioTracks().some(t=>t.readyState==='live'))return Promise.resolve(micStream);
-  if(!navigator.mediaDevices?.getUserMedia)return Promise.resolve(null);
-  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})
-    .then(st=>{micStream=st;return st;}).catch(()=>null);
+// ---------- Microfono: UNA sola sessione per tutta la visita ----------
+// Su iPhone Safari fa funzionare solo la prima sessione di riconoscimento creata:
+// quindi ne creo una, la tengo accesa (continuous) e la riavvio sempre sullo stesso oggetto.
+// Il pulsante non apre una nuova sessione: "arma" l'ascolto della prossima domanda.
+let rec=null,recRunning=false,armed=false,armIndex=0,lastLen=0,heardText='',armTimer=0,silenceTimer=0;
+function micUI(on){
+  $('mic').classList.toggle('listening',on);
+  if(on){setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per inviare');}
+  else if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}});
-window.warmMic=warmMic;
-function resetMic(){listening=false;clearTimeout(recWatchdog);$('mic').classList.remove('listening');if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');}
-function startListening(){
-  // chiude del tutto l'eventuale riconoscimento precedente (su iPhone resta agganciato)
-  if(recognition){const old=recognition;recognition=null;try{old.onresult=old.onend=old.onerror=null;old.abort();}catch{}setTimeout(startListening,250);return;}
-  let heard='';
-  const rec=new SpeechRecognition();recognition=rec;
-  rec.lang='it-IT';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
-  rec.onstart=()=>{if(recognition!==rec)return;listening=true;recStartedAt=Date.now();$('mic').classList.add('listening');setStatus('TI STO ASCOLTANDO');setHint('Parla ora… tocca di nuovo per fermare');
-    clearTimeout(recWatchdog);recWatchdog=setTimeout(()=>{if(recognition===rec&&!heard){try{rec.abort();}catch{}recognition=null;resetMic();setHint('Non ti ho sentito: tocca di nuovo il microfono e parla.');}},9000);};
-  rec.onresult=event=>{if(recognition!==rec)return;let txt='';for(let i=0;i<event.results.length;i++)txt+=event.results[i][0].transcript;heard=txt.trim();$('question').value=heard;
-    if(event.results[event.results.length-1].isFinal&&heard){const h=heard;heard='';try{rec.stop();}catch{}setTimeout(()=>ask(h),350);}};
-  rec.onerror=event=>{if(recognition!==rec)return;resetMic();
-    if(event.error==='aborted')return;
+function sendHeard(){
+  clearTimeout(armTimer);clearTimeout(silenceTimer);
+  const h=heardText.trim();heardText='';armed=false;armIndex=lastLen;micUI(false);
+  if(h)setTimeout(()=>ask(h),200);
+}
+function ensureRec(){
+  if(rec||!SpeechRecognition)return rec;
+  rec=new SpeechRecognition();
+  rec.lang='it-IT';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
+  rec.onstart=()=>{recRunning=true;lastLen=0;armIndex=0;};
+  rec.onresult=e=>{
+    lastLen=e.results.length;
+    if(!armed||activeUtterance){armIndex=lastLen;return;}      // non sta ascoltando una domanda, o AURA sta parlando
+    let txt='',fin=false;
+    for(let i=armIndex;i<e.results.length;i++){txt+=e.results[i][0].transcript;fin=e.results[i].isFinal;}
+    heardText=txt.trim();$('question').value=heardText;
+    clearTimeout(silenceTimer);
+    if(fin&&heardText){sendHeard();return;}
+    if(heardText)silenceTimer=setTimeout(sendHeard,1600);       // se Safari non segna "finale", invio dopo una pausa
+  };
+  rec.onerror=e=>{
+    if(e.error==='no-speech'||e.error==='aborted')return;
     const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();
-    const reason=framed&&/not-allowed|service-not-allowed|audio-capture/.test(event.error)?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto. Sul sito pubblicato potrai parlare.':event.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':event.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura. Oppure detta con il microfono della tastiera.':event.error==='no-speech'?'Non ho sentito nulla. Tocca il microfono e riprova.':'Microfono non disponibile ('+event.error+'). Tocca di nuovo il microfono.';
-    setHint(reason);};
-  rec.onend=()=>{if(recognition!==rec)return;if(heard){const h=heard;heard='';setTimeout(()=>ask(h),350);}resetMic();recognition=null;};
-  try{rec.start();}catch(e){resetMic();setHint('Non riesco ad avviare il microfono. Tocca di nuovo o scrivi la domanda.');}
+    if(/not-allowed|service-not-allowed/.test(e.error)){armed=false;micUI(false);
+      setHint(framed?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto.':e.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura.');}
+  };
+  rec.onend=()=>{
+    recRunning=false;lastLen=0;armIndex=0;
+    if(heardText&&armed){sendHeard();}
+    // riapre la stessa sessione (mai un oggetto nuovo)
+    if(!document.hidden)setTimeout(()=>{if(!recRunning){try{rec.start();}catch{}}},250);
+  };
+  return rec;
 }
+function primeMic(){const r=ensureRec();if(r&&!recRunning){try{r.start();}catch{}}}
+window.auraMicPrime=primeMic;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rec&&!recRunning){try{rec.start();}catch{}}});
 $('mic').addEventListener('click',()=>{
-  if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: tocca il campo di testo e usa il microfono della tastiera per dettare.');$('question').focus();return;}
-  // un secondo tocco mentre ascolta = fine della domanda
-  if(listening&&recognition&&Date.now()-recStartedAt<12000){try{recognition.stop();}catch{}return;}
-  const wasSpeaking=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
+  if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
+  if(armed){sendHeard();return;}                                // secondo tocco = invia subito
   stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
-  // su iPhone voce e microfono non convivono: se AURA parlava, l'audio ha bisogno di un attimo
-  const go=()=>{if(wasSpeaking){setStatus('TI STO ASCOLTANDO');setTimeout(startListening,350);}else startListening();};
-  if(micStream)go();else{warmMic();go();}
+  ensureRec();armed=true;armIndex=lastLen;heardText='';$('question').value='';micUI(true);
+  if(!recRunning){try{rec.start();}catch{}}
+  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText){armed=false;micUI(false);setHint('Non ti ho sentito: tocca il microfono e riprova.');}},10000);
 });
 
 function closeSettings(){MODAL.hidden=true;}
@@ -318,7 +333,7 @@ try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previo
     const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato a bordo, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Benvenuto a bordo, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
     // la voce parte subito, dentro il tocco: così il telefono non la blocca
     if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
-    warmMic();   // il permesso viene chiesto ora, durante la transizione
+    window.auraMicPrime&&window.auraMicPrime();   // il microfono si apre ora, una volta per tutta la visita
     intro.classList.add('entering');
     const t0=performance.now();
     (function accel(){const k=Math.max(0,(performance.now()-t0-250)/1150);warp=Math.min(1,k);if(k<1.6)requestAnimationFrame(accel);})();
