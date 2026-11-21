@@ -250,9 +250,14 @@ const AURA_KB = [
    text:"Cantare? Lascio volentieri il compito ai cantanti in carne e ossa: io non ho polmoni e loro hanno anni di studio. Se vuoi ascoltare Mascagni dal vivo, guarda il programma del Festival.",
    actions:[{label:'Programma del Festival',url:'https://mascagnifestival.it/'}],
    follow:['Quali sono le arie più famose?','Quando sono i prossimi spettacoli?']},
-  {id:'barzelletta', topic:'aura', keys:['barzelletta','battuta','fammi ridere','divertente','scherzo'],
-   text:"Perché il tenore porta sempre una scala a teatro? Per arrivare al do di petto. Ecco, era una battuta da robot. Per l'umorismo vero, preferisco Mascagni: Le maschere debuttò in sei città la stessa sera, e fu fischiata quasi ovunque. Lui ne rise per anni.",
-   follow:['Che storia hanno Le maschere?','Raccontami una curiosità']},
+  {id:'barzelletta', topic:'curiosita', keys:['barzelletta','barzellette','battuta','fammi ridere','facci ridere','fai ridere','divertente','scherzo','dimmi una battuta','raccontami una barzelletta','un altra barzelletta','sai una barzelletta'],
+   texts:[
+    "Un direttore d'orchestra ferma la prova e chiede al violista: «Perché entra sempre in ritardo?». E lui, serissimo: «Maestro, non sono in ritardo. Rispetto le pause… anche quelle degli altri».",
+    "Un tenore deve cantare Cavalleria rusticana e chiede all'impresario di prenotargli il treno delle undici. «Ma lo spettacolo finisce alle undici!». E il tenore: «Appunto. Turiddu muore fuori scena: io intanto prendo il treno».",
+    "Un cantante si avvicina al pianoforte e ordina: «Svelto, portami in Fa diesis, e fai il giro lungo che devo prendere fiato!». Il pianista lo guarda e risponde: «Guarda che il pianista non è un tassista!». Ah ah! Ho rubato la battuta al titolo di un libro di Massimo Salotti."
+   ],
+   text:"",
+   follow:['Un\u2019altra barzelletta','Raccontami una curiosità']},
   {id:'sport', topic:'aura', keys:['sport','calcio','squadra','tifi','tifoso'],
    text:"Non ho gambe, quindi niente calcio. Però tifo per una squadra: quella degli orchestrali, che corre per oltre un'ora senza mai fermarsi.",
    follow:['Quanto dura Cavalleria?']},

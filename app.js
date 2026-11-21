@@ -117,8 +117,9 @@ function demoAnswer(question){
   let text,id,topic,actions=[],follow=[];
   if(best&&bestScore>=4){
     ({text,id,topic}=best);actions=best.actions||[];follow=best.follow||[];
+    if(best.texts&&best.texts.length){memory.rot=memory.rot||{};const n=(memory.rot[id]||0)%best.texts.length;text=best.texts[n];memory.rot[id]=n+1;}
     if(memory.name&&['saluto','grazie','ciao'].includes(id))text=`${memory.name}, `+text.charAt(0).toLowerCase()+text.slice(1);
-    if(memory.history.at(-1)?.q===q&&id!=='curiosita2')text='Te l’ho appena detto, ma lo ripeto volentieri: '+text.charAt(0).toLowerCase()+text.slice(1);
+    if(memory.history.at(-1)?.q===q&&id!=='curiosita2'&&!best.texts)text='Te l’ho appena detto, ma lo ripeto volentieri: '+text.charAt(0).toLowerCase()+text.slice(1);
   }else if(/^ (conosci|sai chi e|chi e|chi era|hai mai sentito) /.test(q)){
     const who=question.replace(/^\s*(conosci|sai chi è|sai chi e|chi è|chi e|chi era|hai mai sentito parlare di|hai mai sentito)\s*/i,'').replace(/[?!.]+$/,'').trim();
     id='persona';topic=last;
