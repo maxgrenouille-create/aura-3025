@@ -233,7 +233,7 @@ const DEBUG=location.hash.includes('debug');
 let dbgBox=null;
 function dbg(msg){
   if(!DEBUG)return;
-  if(!dbgBox){dbgBox=document.createElement('pre');dbgBox.style.cssText='position:fixed;left:6px;right:6px;bottom:6px;max-height:38vh;overflow:auto;z-index:99;background:#000d;color:#9f9;font:11px/1.35 monospace;padding:8px;border-radius:8px;margin:0;white-space:pre-wrap';document.body.append(dbgBox);}
+  if(!dbgBox){dbgBox=document.createElement('pre');dbgBox.style.cssText='position:fixed;left:6px;right:6px;top:6px;max-height:18vh;opacity:.85;pointer-events:none;overflow:auto;z-index:99;background:#000d;color:#9f9;font:11px/1.35 monospace;padding:8px;border-radius:8px;margin:0;white-space:pre-wrap';document.body.append(dbgBox);}
   const t=new Date();dbgBox.textContent=`${t.getMinutes()}:${String(t.getSeconds()).padStart(2,'0')}.${String(t.getMilliseconds()).padStart(3,'0').slice(0,1)} ${msg}\n`+dbgBox.textContent;
 }
 window.dbg=dbg;
@@ -254,12 +254,14 @@ function ensureRec(){
   if(rec){const old=rec;try{old.onresult=old.onerror=old.onend=old.onstart=null;old.abort();}catch{}}
   rec=new SpeechRecognition();
   rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
-  rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);};
+  rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);
+    clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);};
   rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
   rec.onaudioend=()=>dbg('mic: audio chiuso');rec.onnomatch=()=>dbg('mic: nessuna corrispondenza');
   rec.onresult=e=>{
     dbg('mic: risultato «'+[...e.results].map(r=>r[0].transcript).join(' ')+'» finale='+e.results[e.results.length-1].isFinal+' armato='+armed+' parla='+!!activeUtterance);
-    if(!armed||activeUtterance)return;
+    if(activeUtterance)return;
+    if(!armed){armed=true;micUI(true);}
     let txt='',fin=false;
     for(let i=0;i<e.results.length;i++){
       const r=e.results[i];let pick=r[0].transcript;
@@ -287,9 +289,8 @@ function listenNow(){
   $('mic').classList.remove('nudge');
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
   const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();dbg('mic: start() chiamato');}catch(err){dbg('mic: start() fallito '+err.message);}
-    clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){armed=false;micUI(false);setHint('Tocca il microfono per rispondere.');}},1800);};
+    clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){setHint('Un istante: il microfono si sta accendendo…');}},2500);};
   go();
-  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
 }
 const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 // Su iPhone il microfono funziona solo se lo accende un tocco: dopo la risposta lo invito a toccare.
