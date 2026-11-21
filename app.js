@@ -261,32 +261,40 @@ function ensureRec(){
   };
   rec.onerror=e=>{
     if(e.error==='aborted')return;
-    if(e.error==='no-speech'){if(armed&&dialog){armed=false;micUI(false);setTimeout(listenNow,300);}return;}
+    if(e.error==='no-speech'){if(armed&&dialog){armed=false;micUI(false);if(IS_IOS)micAttention();else setTimeout(listenNow,300);}return;}
     const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();
     armed=false;micUI(false);
     setHint(framed?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto.':e.error==='not-allowed'?'Tocca il microfono per rispondere.':e.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura.':'Tocca il microfono per rispondere.');
   };
-  rec.onend=()=>{recRunning=false;if(armed&&heardText)sendHeard();else if(armed){armed=false;micUI(false);if(dialog)setTimeout(listenNow,300);}};
+  rec.onend=()=>{recRunning=false;if(armed&&heardText)sendHeard();else if(armed){armed=false;micUI(false);if(dialog){if(IS_IOS)micAttention();else setTimeout(listenNow,300);}}};
   return rec;
 }
 // accende il microfono da zero per una nuova domanda
 function listenNow(){
   if(!dialog||activeUtterance)return;
+  $('mic').classList.remove('nudge');
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
   const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();}catch{}
     clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){armed=false;micUI(false);setHint('Tocca il microfono per rispondere.');}},1800);};
   go();
   clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
 }
-function rearm(){if(dialog)setTimeout(listenNow,300);}
+const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+// Su iPhone il microfono funziona solo se lo accende un tocco: dopo la risposta lo invito a toccare.
+function micAttention(){
+  $('mic').classList.add('nudge');setStatus('IN ATTESA DI UNA DOMANDA');
+  setHint('Tocca il microfono per la prossima domanda');
+}
+function rearm(){if(!dialog)return;if(IS_IOS){micAttention();return;}setTimeout(listenNow,300);}
 function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);hardStop();micUI(false);if(msg)setHint(msg);}
 window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // all'ingresso: chiede subito il permesso del microfono, poi lo spegne
 $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
-  if(armed&&recRunning){if(heardText)sendHeard();else endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
+  if(armed&&recRunning&&heardText){sendHeard();return;}
+  if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
   stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
-  dialog=true;listenNow();
+  armed=false;dialog=true;listenNow();
 });
 
 function closeSettings(){MODAL.hidden=true;}
