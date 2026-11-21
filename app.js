@@ -242,13 +242,14 @@ function dbg(msg){
 window.dbg=dbg;
 function micUI(on){
   $('mic').classList.toggle('listening',on);
-  if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Modalità dialogo: parla quando vuoi · tocca il microfono per fermare':'Parla ora…');}
-  else if(['TI STO ASCOLTANDO','UN ISTANTE…'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
+  if(on&&wakeTap){setStatus('TOCCA ANCORA E PARLA');setHint('Microfono sveglio: tocca di nuovo e fai la domanda');$('mic').classList.add('nudge');}
+  else if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Parla ora · tocca il microfono per fermare':'Parla ora…');}
+  else if(['TI STO ASCOLTANDO','UN ISTANTE…','TOCCA ANCORA E PARLA'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
 }
 function hardStop(){if(rec){try{rec.abort();}catch{}}}           // spegne davvero il microfono
-let askedOnce=false;
+let askedOnce=false,wakeTap=false;
 function sendHeard(){
-  askedOnce=true;
+  askedOnce=true;wakeTap=false;
   clearTimeout(armTimer);clearTimeout(silenceTimer);
   const h=heardText.trim();heardText='';armed=false;micUI(false);
   hardStop();
@@ -309,13 +310,9 @@ window.auraRearm=rearm;window.auraEndDialog=endDialog;
 // all'ingresso: chiede subito il permesso del microfono, poi lo spegne
 // SCOPERTA DI MASSIMO (21/11): dopo la prima risposta il primo avvio è sordo, il secondo (fatto da un tocco) funziona.
 // Quindi in un solo tocco faccio due avvii, entrambi dentro il gesto: appoggio del dito = risveglio, stacco del dito = ascolto vero.
-$('mic').addEventListener('touchstart',()=>{
-  window.__touch=(window.__touch||0)+1;
-  if(!askedOnce||armed||!SpeechRecognition){dbg('dito appoggiato: niente risveglio (prima='+!askedOnce+' armato='+armed+')');return;}
-  try{if(window.speechSynthesis&&speechSynthesis.speaking){stopSpeaking();speechSynthesis.cancel();}}catch{}
-  ensureRec();try{rec.start();dbg('mic: risveglio (dito appoggiato)');}catch(e){dbg('mic: risveglio non riuscito '+e.message);}
-},{passive:true});
+// DUE TOCCHI dalla seconda domanda (scoperta di Massimo, 21/11): il 1° avvio dopo che AURA ha parlato è sordo, il 2° (da un altro tocco) funziona.
 $('mic').addEventListener('click',()=>{
+  if(IS_IOS&&askedOnce){wakeTap=!(armed||wakeTap)?true:false;dbg(wakeTap?'tocco 1: sveglia':'tocco 2: ascolto');}
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
   if(armed&&recRunning&&heardText){sendHeard();return;}
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}

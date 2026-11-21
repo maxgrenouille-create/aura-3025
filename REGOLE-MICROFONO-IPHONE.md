@@ -17,3 +17,5 @@ Prima di pubblicare qualsiasi modifica al microfono: test con microfono simulato
 10. SCOPERTA DI MASSIMO (21/11 11:52): dopo che AURA ha parlato, il PRIMO avvio del microfono resta sordo, il SECONDO funziona. Rimedio: al tocco, appena arriva "audio aperto", si chiude e si riavvia da solo (doppio avvio). Non togliere.
 
 11. ERRORE MIO (21/11 11:56-12:15): il riavvio automatico fatto DA CODICE (senza tocco) resta sordo e ha rotto anche la PRIMA domanda. Un riavvio funziona solo se nasce da un tocco. Ripristinata la versione delle 11:43; il secondo avvio ora nasce dallo stesso tocco (touchstart = risveglio, click = ascolto), solo dalla seconda domanda in poi.
+
+12. VERSIONE A DUE TOCCHI (21/11 12:50): dalla seconda domanda, tocco 1 = sveglia (scritta TOCCA ANCORA E PARLA), tocco 2 = ascolto. Il risveglio a un tocco (touchstart+click) NON ha funzionato su iPhone.
