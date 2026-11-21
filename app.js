@@ -182,14 +182,14 @@ function speak(_voice,text,retry=false){
   u.lang=v?.lang||'it-IT';u.rate=0.97;u.pitch=isMale(v)?0.92:0.72;u.volume=1;
   activeUtterance=u;
   let started=false;
-  u.onstart=()=>{if(activeUtterance!==u)return;started=true;auraAvatar.speakLive();setStatus('AURA STA PARLANDO');};
+  u.onstart=()=>{dbg('voce: inizia');if(activeUtterance!==u)return;started=true;auraAvatar.speakLive();setStatus('AURA STA PARLANDO');};
   u.onboundary=e=>{
     if(activeUtterance!==u||e.name&&e.name!=='word')return;
     const rest=u.text.slice(e.charIndex);const word=(rest.match(/^\S+/)||[''])[0];
     auraAvatar.liveWord(word);
   };
   const finish=()=>{if(activeUtterance===u)stopSpeaking();};
-  u.onend=()=>{const mine=activeUtterance===u;finish();if(mine&&_voice!=='ciao')setTimeout(()=>window.auraRearm&&window.auraRearm(),450);};
+  u.onend=()=>{dbg('voce: finita');const mine=activeUtterance===u;finish();if(mine&&_voice!=='ciao')setTimeout(()=>window.auraRearm&&window.auraRearm(),450);};
   u.onerror=e=>{if(activeUtterance!==u)return;finish();if(e.error!=='interrupted'&&e.error!=='canceled')setHint('Voce non disponibile. Puoi leggere la risposta qui sopra.');};
   setStatus('AURA STA PER PARLARE');
   synth.speak(u);
@@ -229,6 +229,14 @@ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
 // ---------- Microfono: si spegne del tutto prima che AURA parli e si riaccende dopo ----------
 // Su iPhone, se il microfono resta acceso mentre AURA risponde, la domanda successiva non viene più trascritta.
 let rec=null,recRunning=false,armed=false,heardText='',armTimer=0,silenceTimer=0,dialog=false,startGuard=0;
+const DEBUG=location.hash.includes('debug');
+let dbgBox=null;
+function dbg(msg){
+  if(!DEBUG)return;
+  if(!dbgBox){dbgBox=document.createElement('pre');dbgBox.style.cssText='position:fixed;left:6px;right:6px;bottom:6px;max-height:38vh;overflow:auto;z-index:99;background:#000d;color:#9f9;font:11px/1.35 monospace;padding:8px;border-radius:8px;margin:0;white-space:pre-wrap';document.body.append(dbgBox);}
+  const t=new Date();dbgBox.textContent=`${t.getMinutes()}:${String(t.getSeconds()).padStart(2,'0')}.${String(t.getMilliseconds()).padStart(3,'0').slice(0,1)} ${msg}\n`+dbgBox.textContent;
+}
+window.dbg=dbg;
 function micUI(on){
   $('mic').classList.toggle('listening',on);
   if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Modalità dialogo: parla quando vuoi · tocca il microfono per fermare':'Parla ora…');}
@@ -246,8 +254,11 @@ function ensureRec(){
   if(rec){const old=rec;try{old.onresult=old.onerror=old.onend=old.onstart=null;old.abort();}catch{}}
   rec=new SpeechRecognition();
   rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
-  rec.onstart=()=>{recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);};
+  rec.onstart=()=>{dbg('mic: avviato');recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);};
+  rec.onaudiostart=()=>dbg('mic: audio aperto');rec.onsoundstart=()=>dbg('mic: sente suoni');rec.onspeechstart=()=>dbg('mic: sente parlare');
+  rec.onaudioend=()=>dbg('mic: audio chiuso');rec.onnomatch=()=>dbg('mic: nessuna corrispondenza');
   rec.onresult=e=>{
+    dbg('mic: risultato «'+[...e.results].map(r=>r[0].transcript).join(' ')+'» finale='+e.results[e.results.length-1].isFinal+' armato='+armed+' parla='+!!activeUtterance);
     if(!armed||activeUtterance)return;
     let txt='',fin=false;
     for(let i=0;i<e.results.length;i++){
@@ -260,13 +271,14 @@ function ensureRec(){
     if(heardText)silenceTimer=setTimeout(sendHeard,1600);
   };
   rec.onerror=e=>{
+    dbg('mic: ERRORE '+e.error);
     if(e.error==='aborted')return;
     if(e.error==='no-speech'){if(armed&&dialog){armed=false;micUI(false);if(IS_IOS)micAttention();else setTimeout(listenNow,300);}return;}
     const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();
     armed=false;micUI(false);
     setHint(framed?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto.':e.error==='not-allowed'?'Tocca il microfono per rispondere.':e.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura.':'Tocca il microfono per rispondere.');
   };
-  rec.onend=()=>{recRunning=false;if(armed&&heardText)sendHeard();else if(armed){armed=false;micUI(false);if(dialog){if(IS_IOS)micAttention();else setTimeout(listenNow,300);}}};
+  rec.onend=()=>{dbg('mic: fine');recRunning=false;if(armed&&heardText)sendHeard();else if(armed){armed=false;micUI(false);if(dialog){if(IS_IOS)micAttention();else setTimeout(listenNow,300);}}};
   return rec;
 }
 // accende il microfono da zero per una nuova domanda
@@ -274,7 +286,7 @@ function listenNow(){
   if(!dialog||activeUtterance)return;
   $('mic').classList.remove('nudge');
   armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
-  const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();}catch{}
+  const go=()=>{ensureRec();if(!rec)return;recRunning=false;try{rec.start();dbg('mic: start() chiamato');}catch(err){dbg('mic: start() fallito '+err.message);}
     clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){armed=false;micUI(false);setHint('Tocca il microfono per rispondere.');}},1800);};
   go();
   clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
@@ -293,7 +305,9 @@ $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
   if(armed&&recRunning&&heardText){sendHeard();return;}
   if(armed&&recRunning&&!IS_IOS){endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
-  stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
+  const speakingNow=!!activeUtterance||(window.speechSynthesis&&speechSynthesis.speaking);
+  dbg('tocco microfono · AURA parlava='+speakingNow);
+  if(speakingNow){stopSpeaking();try{speechSynthesis.cancel();}catch{}}
   armed=false;dialog=true;listenNow();
 });
 
