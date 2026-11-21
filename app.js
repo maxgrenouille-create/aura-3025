@@ -36,6 +36,36 @@ function saveMemory(){try{localStorage.setItem(MEM_KEY,JSON.stringify(memory));}
 const norm=t=>(' '+t.toLocaleLowerCase('it-IT').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’'`]/g,' ').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim()+' ');
 const KB=(typeof AURA_KB!=='undefined'?AURA_KB:[]).map(e=>({...e,nkeys:e.keys.map(k=>norm(k).trim())}));
 const GENERIC=new Set(['mascagni','pietro','cavalleria','rusticana','opere','vita','aura','chi era','storia','compositore','di cosa parla','trama','fine','finale','debutto','successo','famos','prima volta','ciao','buongiorno','buonasera','salve','hey','ehi']);
+// ---- comprensione tollerante: parole simili, spezzate o attaccate ----
+const FILLERS=[' ti ho chiesto',' ti chiedo',' volevo sapere',' vorrei sapere',' mi sai dire',' sai dirmi',' mi dici',' dimmi',' senti',' scusa',' scusami',' per favore',' allora',' ehm',' aura',' allora aura',' ciao aura',' mi piacerebbe sapere',' potresti dirmi',' puoi dirmi',' mi parli',' parlami un po',' un po'];
+function clean_q(q){let r=q;for(const f of FILLERS){if(r.startsWith(f+' ')||r.includes(f+' ')){const t=r.replace(f+' ',' ');if(t.trim().length>=3)r=t;}}return r.replace(/\s+/g,' ');}
+function lev(a,b,max){
+  if(Math.abs(a.length-b.length)>max)return max+1;
+  let prev=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){const cur=[i];let rowMin=i;
+    for(let j=1;j<=b.length;j++){cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));if(cur[j]<rowMin)rowMin=cur[j];}
+    if(rowMin>max)return max+1;prev=cur;}
+  return prev[b.length];
+}
+function candidates(q){
+  const t=q.trim().split(' ').filter(Boolean),c=t.map(x=>({t:x,j:false}));
+  for(let i=0;i<t.length;i++){if(t[i+1])c.push({t:t[i]+t[i+1],j:true});if(t[i+2])c.push({t:t[i]+t[i+1]+t[i+2],j:true});}
+  return c;
+}
+function fuzzyHas(cands,k){
+  if(k.includes(' ')||k.length<5)return false;            // tolleranza solo sulle parole singole
+  const max=k.length>=7?2:1;
+  for(const c of cands){
+    if(c.t.length<4)continue;
+    if(c.j&&k.length<7)continue;                          // parole unite: solo per nomi lunghi (pino tta → pinotta)
+    if(lev(c.t,k,max)<=max)return true;
+  }
+  return false;
+}
+function kbScore(text){const q=clean_q(norm(text));const cands=candidates(q);let b=0;
+  for(const e of KB){let sc=0;for(const k of e.nkeys){if(!k)continue;const w=GENERIC.has(k)?k.length/3:k.length+4;if(q.includes(' '+k))sc+=w;else if(fuzzyHas(cands,k))sc+=w*.85;}if(sc>b)b=sc;}
+  return b;}
+window.kbScore=kbScore;
 const STOP=new Set('che chi cosa come dove quando quale quali quanto quanti perche per con del della dei delle degli dal dalla nel nella nei sul sulla una uno gli le lo la il di da in su tra fra non piu mi ti si ci vi sei sono era erano e ha hanno ho hai abbiamo mio mia tuo tua suo sua loro questo questa quello quella parlami dimmi raccontami sai conosci puoi vorrei sapere anche ancora molto poco tutto tutti cos fatto fare essere stato stata opera opere mascagni pietro aura'.split(' '));
 for(const e of KB)e.ntext=norm(e.text+' '+e.keys.join(' '));
 const IDF={};{const df={};for(const e of KB){const seen=new Set(e.ntext.trim().split(' ').map(w=>w.length>5?w.slice(0,w.length-2):w));for(const w of seen)df[w]=(df[w]||0)+1;}
@@ -44,7 +74,7 @@ const TOPIC_NAMES={mascagni:'della vita di Mascagni',opere:'delle sue opere',cav
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 
 function demoAnswer(question){
-  const q=norm(question);
+  const q=clean_q(norm(question));
   // memoria: nome
   const named=question.match(/(?:mi chiamo|il mio nome (?:è|e)|chiamami)\s+([A-Za-zÀ-ÿ'’]+)/i);
   if(named){memory.name=cap(named[1].toLowerCase());saveMemory();
@@ -59,9 +89,15 @@ function demoAnswer(question){
   const aboutMe=/ (sei|tu|ti|tuo|tua|te) /.test(q);
   const last=memory.history.at(-1)?.topic;
   let best=null,bestScore=0;
+  const cands=candidates(q);
   for(const e of KB){
     let score=0;
-    for(const k of e.nkeys){if(k&&q.includes(' '+k))score+=GENERIC.has(k)?k.length/3:k.length+4;}
+    for(const k of e.nkeys){
+      if(!k)continue;
+      const w=GENERIC.has(k)?k.length/3:k.length+4;
+      if(q.includes(' '+k)){score+=w;continue;}
+      if(fuzzyHas(cands,k))score+=w*.85;              // parola trascritta male ma riconoscibile
+    }
     if(!score)continue;
     if(aboutMe&&e.topic==='aura')score+=4;
     if(e.topic===last)score+=2;
@@ -190,74 +226,69 @@ function farewellWhenDone(){
 $('textForm').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-// ---------- Microfono: UNA sola sessione per tutta la visita ----------
-// Su iPhone Safari fa funzionare solo la prima sessione di riconoscimento creata:
-// quindi ne creo una, la tengo accesa (continuous) e la riavvio sempre sullo stesso oggetto.
-// Il pulsante non apre una nuova sessione: "arma" l'ascolto della prossima domanda.
-let rec=null,recRunning=false,armed=false,armIndex=0,lastLen=0,heardText='',armTimer=0,silenceTimer=0,dialog=false;
-// Modalità dialogo: dopo ogni risposta AURA azzera ciò che ha sentito e torna ad ascoltare da sola
-function rearm(){
-  if(!dialog)return;
-  armed=true;heardText='';$('question').value='';armIndex=lastLen;
-  setStatus('UN ISTANTE…');
-  if(rec&&recRunning){try{rec.stop();}catch{}}          // azzera il parlato: la stessa sessione riparte pulita
-  else if(rec){try{rec.start();}catch{}}
-  else micUI(true);
-  clearTimeout(armTimer);
-  armTimer=setTimeout(()=>{if(armed&&!heardText){dialog=false;armed=false;micUI(false);setHint('Conversazione in pausa: tocca il microfono per riprendere.');}},20000);
-}
-function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);micUI(false);if(msg)setHint(msg);}
-window.auraRearm=rearm;window.auraEndDialog=endDialog;
+// ---------- Microfono: si spegne del tutto prima che AURA parli e si riaccende dopo ----------
+// Su iPhone, se il microfono resta acceso mentre AURA risponde, la domanda successiva non viene più trascritta.
+let rec=null,recRunning=false,armed=false,heardText='',armTimer=0,silenceTimer=0,dialog=false,startGuard=0;
 function micUI(on){
   $('mic').classList.toggle('listening',on);
   if(on){setStatus('TI STO ASCOLTANDO');setHint(dialog?'Modalità dialogo: parla quando vuoi · tocca il microfono per fermare':'Parla ora…');}
-  else if($('stageStatus').textContent==='TI STO ASCOLTANDO')setStatus('IN ATTESA DI UNA DOMANDA');
+  else if(['TI STO ASCOLTANDO','UN ISTANTE…'].includes($('stageStatus').textContent))setStatus('IN ATTESA DI UNA DOMANDA');
 }
+function hardStop(){if(rec){try{rec.abort();}catch{}}}           // spegne davvero il microfono
 function sendHeard(){
   clearTimeout(armTimer);clearTimeout(silenceTimer);
-  const h=heardText.trim();heardText='';armed=false;armIndex=lastLen;micUI(false);
-  if(h)setTimeout(()=>ask(h),200);
+  const h=heardText.trim();heardText='';armed=false;micUI(false);
+  hardStop();
+  if(h)setTimeout(()=>ask(h),350);                               // AURA risponde a microfono spento
 }
 function ensureRec(){
   if(rec||!SpeechRecognition)return rec;
   rec=new SpeechRecognition();
-  rec.lang='it-IT';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
-  rec.onstart=()=>{recRunning=true;lastLen=0;armIndex=0;if(armed)micUI(true);};
+  rec.lang='it-IT';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=4;
+  rec.onstart=()=>{recRunning=true;clearTimeout(startGuard);if(armed)micUI(true);else hardStop();};
   rec.onresult=e=>{
-    lastLen=e.results.length;
-    if(!armed||activeUtterance){armIndex=lastLen;return;}      // non sta ascoltando una domanda, o AURA sta parlando
+    if(!armed||activeUtterance)return;
     let txt='',fin=false;
-    for(let i=armIndex;i<e.results.length;i++){txt+=e.results[i][0].transcript;fin=e.results[i].isFinal;}
+    for(let i=0;i<e.results.length;i++){
+      const r=e.results[i];let pick=r[0].transcript;
+      if(r.isFinal&&r.length>1){let bs=kbScore(pick);for(let a=1;a<r.length;a++){const sc=kbScore(r[a].transcript);if(sc>bs+1){bs=sc;pick=r[a].transcript;}}}
+      txt+=pick;fin=r.isFinal;}
     heardText=txt.trim();$('question').value=heardText;
     clearTimeout(silenceTimer);
     if(fin&&heardText){sendHeard();return;}
-    if(heardText)silenceTimer=setTimeout(sendHeard,1600);       // se Safari non segna "finale", invio dopo una pausa
+    if(heardText)silenceTimer=setTimeout(sendHeard,1600);
   };
   rec.onerror=e=>{
-    if(e.error==='no-speech'||e.error==='aborted')return;
+    if(e.error==='aborted')return;
+    if(e.error==='no-speech'){if(armed&&dialog){armed=false;micUI(false);setTimeout(listenNow,300);}return;}
     const framed=(()=>{try{return window.self!==window.top;}catch{return true;}})();
-    if(/not-allowed|service-not-allowed/.test(e.error)){armed=false;micUI(false);
-      setHint(framed?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto.':e.error==='not-allowed'?'Microfono negato. Su iPhone: Impostazioni → Safari → Microfono → Consenti; poi ricarica la pagina.':'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura.');}
+    armed=false;micUI(false);
+    setHint(framed?'In questa anteprima il microfono è bloccato: scrivi la domanda qui accanto.':e.error==='not-allowed'?'Tocca il microfono per rispondere.':e.error==='service-not-allowed'?'Su iPhone attiva la dettatura: Impostazioni → Generali → Tastiera → Abilita dettatura.':'Tocca il microfono per rispondere.');
   };
-  rec.onend=()=>{
-    recRunning=false;lastLen=0;armIndex=0;
-    if(heardText&&armed){sendHeard();}
-    // riapre la stessa sessione (mai un oggetto nuovo)
-    if(!document.hidden)setTimeout(()=>{if(!recRunning){try{rec.start();}catch{}}},250);
-  };
+  rec.onend=()=>{recRunning=false;if(armed&&heardText)sendHeard();else if(armed){armed=false;micUI(false);if(dialog)setTimeout(listenNow,300);}};
   return rec;
 }
-function primeMic(){const r=ensureRec();if(r&&!recRunning){try{r.start();}catch{}}}
+// accende il microfono da zero per una nuova domanda
+function listenNow(){
+  if(!dialog||activeUtterance)return;
+  ensureRec();if(!rec)return;
+  armed=true;heardText='';$('question').value='';setStatus('UN ISTANTE…');
+  const go=()=>{try{rec.start();}catch{}
+    clearTimeout(startGuard);startGuard=setTimeout(()=>{if(armed&&!recRunning){armed=false;micUI(false);setHint('Tocca il microfono per rispondere.');}},1800);};
+  if(recRunning){hardStop();setTimeout(go,300);}else go();
+  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
+}
+function rearm(){if(dialog)setTimeout(listenNow,300);}
+function endDialog(msg){dialog=false;armed=false;heardText='';clearTimeout(armTimer);clearTimeout(silenceTimer);hardStop();micUI(false);if(msg)setHint(msg);}
+window.auraRearm=rearm;window.auraEndDialog=endDialog;
+// all'ingresso: chiede subito il permesso del microfono, poi lo spegne
+function primeMic(){const r=ensureRec();if(r&&!recRunning){armed=false;try{r.start();}catch{}}}
 window.auraMicPrime=primeMic;
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rec&&!recRunning){try{rec.start();}catch{}}});
 $('mic').addEventListener('click',()=>{
   if(!SpeechRecognition){setHint('Questo browser non riconosce la voce: usa Safari su iPhone o Chrome, oppure scrivi la domanda.');$('question').focus();return;}
-  if(armed){if(heardText)sendHeard();else endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
-  dialog=true;
+  if(armed&&recRunning){if(heardText)sendHeard();else endDialog('Conversazione in pausa: tocca il microfono per riprendere.');return;}
   stopSpeaking();try{window.speechSynthesis&&speechSynthesis.cancel();}catch{}
-  ensureRec();armed=true;armIndex=lastLen;heardText='';$('question').value='';micUI(true);
-  if(!recRunning){try{rec.start();}catch{}}
-  clearTimeout(armTimer);armTimer=setTimeout(()=>{if(armed&&!heardText)endDialog('Conversazione in pausa: tocca il microfono per riprendere.');},20000);
+  dialog=true;listenNow();
 });
 
 function closeSettings(){MODAL.hidden=true;}
