@@ -366,7 +366,17 @@ async function start() {
     renderer.render(scene, camera);
   }
   requestAnimationFrame(frame);
-  window.aura3d = {setShot: (n, cut) => setShot(n, {cut, manual: true})};
+  // Entrata dall'astronave: la camera parte lontana e scende fino al mezzo busto
+  function intro() {
+    const g = shotPose('wide', performance.now() / 1000);
+    const far = g.pos.clone().sub(g.target).multiplyScalar(3.2).add(g.target);
+    far.y += .35;
+    cam.from = {pos: far, target: g.target.clone(), fov: g.fov + 6};
+    camera.position.copy(far);
+    shot = 'wide'; cam.t = 0; cam.dur = 2.8;
+    manualUntil = performance.now() + 5200;   // il saluto resta in mezzo busto mentre la camera atterra
+  }
+  window.aura3d = {setShot: (n, cut) => setShot(n, {cut, manual: true}), intro};
 }
 
 if (portrait.complete) start().catch(e => console.warn('AURA 3D non disponibile', e));

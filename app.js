@@ -209,15 +209,45 @@ try{if(localStorage.getItem('aura_muted')==='1')$('voiceToggle').checked=false;}
 syncMute();
 try{const previous=JSON.parse(sessionStorage.getItem(STORAGE)||'null');if(previous?.text)render(previous.text,previous.actions||[],previous.follow||[]);}catch{}
 
-// ---------- Ingresso: il primo tocco sblocca la voce per tutta la visita ----------
+// ---------- Ingresso: l'astronave di AURA-3025 (il tocco sblocca anche la voce) ----------
 (()=>{
-  const btn=$('startAura');if(!btn)return;
-  btn.onclick=()=>{
-    btn.classList.add('gone');setTimeout(()=>btn.remove(),600);
+  const intro=$('startAura');if(!intro)return;
+  const cv=$('introStars'),ctx=cv.getContext('2d');
+  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),warp=0,running=true;
+  const stars=Array.from({length:260},()=>({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()*1+.05,pz:0}));
+  function size(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
+  size();addEventListener('resize',size);
+  let last=performance.now();
+  function draw(now){
+    if(!running)return;requestAnimationFrame(draw);
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    const speed=.035+warp*2.6;
+    ctx.fillStyle=warp>0?'rgba(2,4,7,.35)':'rgba(2,4,7,1)';ctx.fillRect(0,0,W,H);
+    const cx=W/2,cy=H*.4,f=Math.max(W,H)*.5;
+    for(const s of stars){
+      s.pz=s.z;s.z-=speed*dt;
+      if(s.z<=.02){s.x=(Math.random()-.5)*2;s.y=(Math.random()-.5)*2;s.z=1;s.pz=1;}
+      const sx=cx+s.x/s.z*f*.5,sy=cy+s.y/s.z*f*.5,px=cx+s.x/s.pz*f*.5,py=cy+s.y/s.pz*f*.5;
+      const a=Math.min(1,(1-s.z)*1.4),r=Math.max(.4,(1-s.z)*1.8);
+      ctx.strokeStyle=`rgba(${200+55*warp|0},${235},${255},${a})`;ctx.lineWidth=r;
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sx+.01,sy+.01);ctx.stroke();
+    }
+  }
+  requestAnimationFrame(draw);
+  let started=false;
+  function enter(){
+    if(started)return;started=true;
     voiceUnlocked=true;
-    const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Salve, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
-    render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);
-    if($('voiceToggle').checked)speak('saluto',hello);
-    else{try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
-  };
+    const hello=(typeof memory!=='undefined'&&memory.name)?`Bentornato a bordo, ${memory.name}. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.`:'Benvenuto a bordo, umano. Sono AURA-3025. Chiedimi quello che vuoi su Pietro Mascagni.';
+    // la voce parte subito, dentro il tocco: così il telefono non la blocca
+    if($('voiceToggle').checked){try{const z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z);}catch{}}
+    intro.classList.add('entering');
+    const t0=performance.now();
+    (function accel(){const k=(performance.now()-t0)/1400;warp=Math.min(1,k*k);if(k<1.6)requestAnimationFrame(accel);})();
+    setTimeout(()=>{window.aura3d?.intro?.();render(hello,[],['Chi sei?','Chi era Mascagni?','Di cosa parla Cavalleria rusticana?']);},1500);
+    setTimeout(()=>{intro.classList.add('leaving');if($('voiceToggle').checked)speak('saluto',hello);},1900);
+    setTimeout(()=>{running=false;intro.remove();},2900);
+  }
+  intro.addEventListener('click',enter);
+  intro.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter();}});
 })();
